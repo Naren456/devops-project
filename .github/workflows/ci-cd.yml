@@ -6,6 +6,9 @@ on:
     branches: [main]
 env:
   REGISTRY: ghcr.io
+  TRIVY_IMAGE: aquasec/trivy:0.67.2
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER: taskboard-eks
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,19 +20,25 @@ jobs:
         run: pip install -r requirements.txt
         working-directory: backend
       - name: Run backend tests
-        run: pytest -q
+        run: pytest -v
         working-directory: backend
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - name: Build frontend
-        run: npm install && npm run build
+        run: npm ci && npm run build
         working-directory: frontend
   build-scan-push:
     needs: test
     runs-on: ubuntu-latest
     permissions: {contents: read, packages: write}
+    outputs:
+      image_prefix: ${{ steps.prefix.outputs.value }}
     steps:
       - uses: actions/checkout@v4
+      # GHCR image names must be lowercase; the account owner "Naren456" is not.
+      - name: Compute image prefix
+        id: prefix
+        run: echo "value=${REGISTRY}/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -37,43 +46,61 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build images
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/taskboard-backend:${{ github.sha }} ./backend
-          docker build -t ghcr.io/${{ github.repository_owner }}/taskboard-frontend:${{ github.sha }} ./frontend
-      - name: Scan backend
-        uses: aquasecurity/trivy-action@0.30.0
-        with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/taskboard-backend:${{ github.sha }}
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-      - name: Scan frontend
-        uses: aquasecurity/trivy-action@0.30.0
-        with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/taskboard-frontend:${{ github.sha }}
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-      - name: Push images
+          docker build -t ${{ steps.prefix.outputs.value }}/taskboard-backend:${{ github.sha }} ./backend
+          docker build -t ${{ steps.prefix.outputs.value }}/taskboard-frontend:${{ github.sha }} ./frontend
+      # Trivy runs from a pinned container image rather than trivy-action.
+      - name: Trivy scan backend
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/taskboard-backend:${{ github.sha }}
-          docker push ghcr.io/${{ github.repository_owner }}/taskboard-frontend:${{ github.sha }}
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $TRIVY_IMAGE image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            ${{ steps.prefix.outputs.value }}/taskboard-backend:${{ github.sha }}
+      - name: Trivy scan frontend
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $TRIVY_IMAGE image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+            ${{ steps.prefix.outputs.value }}/taskboard-frontend:${{ github.sha }}
+      - name: Push images
+        if: github.event_name == 'push'
+        run: |
+          docker push ${{ steps.prefix.outputs.value }}/taskboard-backend:${{ github.sha }}
+          docker push ${{ steps.prefix.outputs.value }}/taskboard-frontend:${{ github.sha }}
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-scan-push
     runs-on: ubuntu-latest
-    permissions: {contents: read, packages: read}
+    permissions: {contents: read}
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-      - name: Configure kubectl
-        env: {KUBE_CONFIG_DATA: '${{ secrets.KUBE_CONFIG_DATA }}'}
+      # Deploy only once the EKS cluster exists and AWS secrets are configured.
+      - name: Check deploy credentials
+        id: creds
         run: |
-          mkdir -p ~/.kube
-          echo "$KUBE_CONFIG_DATA" | base64 -d > ~/.kube/config
+          if [ -n "$AWS_ACCESS_KEY_ID" ] && [ -n "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::AWS secrets not set; skipping deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.creds.outputs.ready == 'true'
+      - uses: azure/setup-helm@v4
+        if: steps.creds.outputs.ready == 'true'
+      - name: Configure kubectl for EKS
+        if: steps.creds.outputs.ready == 'true'
+        run: aws eks update-kubeconfig --region "$AWS_REGION" --name "$EKS_CLUSTER"
+      - name: Install cluster add-ons
+        if: steps.creds.outputs.ready == 'true'
+        run: ./scripts/bootstrap-cluster.sh
       - name: Deploy with Helm
+        if: steps.creds.outputs.ready == 'true'
         run: |
           helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
+            -f ./helm/taskboard/values-prod.yaml \
             --set backend.tag=${{ github.sha }} \
             --set frontend.tag=${{ github.sha }} \
-            --set backend.image=ghcr.io/${{ github.repository_owner }}/taskboard-backend \
-            --set frontend.image=ghcr.io/${{ github.repository_owner }}/taskboard-frontend
+            --set backend.image=${{ needs.build-scan-push.outputs.image_prefix }}/taskboard-backend \
+            --set frontend.image=${{ needs.build-scan-push.outputs.image_prefix }}/taskboard-frontend \
+            --wait --timeout 10m
+          kubectl get pods,svc,ingress,hpa -n taskboard
