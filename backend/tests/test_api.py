@@ -33,3 +33,18 @@ def test_delete_task(client):
     task = make_task(client)
     assert client.delete(f"/api/tasks/{task['id']}").status_code == 204
     assert client.get(f"/api/tasks/{task['id']}").status_code == 404
+
+def test_get_missing_task_returns_404(client):
+    assert client.get("/api/tasks/9999").status_code == 404
+
+def test_stats_counts_by_status(client):
+    task = make_task(client)
+    client.put(f"/api/tasks/{task['id']}", json={"status": "DONE"})
+    make_task(client)
+    assert client.get("/api/tasks/stats").json() == {"total": 2, "todo": 1, "inProgress": 0, "done": 1}
+
+def test_metrics_exposes_prometheus_format(client):
+    client.get("/health")
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert "http_requests_total" in response.text
