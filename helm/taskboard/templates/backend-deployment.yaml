@@ -16,6 +16,12 @@ spec:
       imagePullSecrets:
 {{ toYaml . | indent 8 }}
       {{- end }}
+      # Alembic runs at container start, so hold the backend until Postgres accepts connections.
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h {{ .Values.postgres.host }} -p 5432; do echo waiting for postgres; sleep 2; done"]
+          resources: {requests: {cpu: 10m, memory: 16Mi}, limits: {cpu: 100m, memory: 64Mi}}
       containers:
         - name: backend
           image: "{{ .Values.backend.image }}:{{ .Values.backend.tag }}"
