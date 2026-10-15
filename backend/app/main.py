@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
@@ -9,14 +11,15 @@ from .db import Base, engine, get_db
 from .models import Task
 from .schemas import StatsOut, TaskCreate, TaskOut, TaskUpdate
 
-app = FastAPI(title=settings.app_name, version="1.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
-
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # Production containers run Alembic before Uvicorn; create_all keeps tests self-contained.
     Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 @app.get("/")
 def root():
