@@ -18,6 +18,8 @@ kind: Deployment
 metadata: {name: taskboard-postgres}
 spec:
   replicas: 1
+  # ReadWriteOnce volume: stop the old pod before starting the new one.
+  strategy: {type: Recreate}
   selector: {matchLabels: {app: taskboard-postgres}}
   template:
     metadata: {labels: {app: taskboard-postgres}}
@@ -39,4 +41,7 @@ kind: PersistentVolumeClaim
 metadata: {name: taskboard-postgres-data}
 spec:
   accessModes: [ReadWriteOnce]
-  resources: {requests: {storage: 5Gi}}
+  {{- with .Values.postgres.storageClassName }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources: {requests: {storage: {{ .Values.postgres.storage }}}}
