@@ -1,6 +1,17 @@
+# Values for prometheus-community/kube-prometheus-stack (installed by scripts/bootstrap-cluster.sh).
 grafana:
   enabled: true
+  adminPassword: taskboard-admin   # demo only; change for anything real
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      # Load the TaskBoard dashboard ConfigMap shipped by the Helm chart in the taskboard namespace.
+      searchNamespace: ALL
 prometheus:
   prometheusSpec:
+    # Pick up ServiceMonitors from every namespace, not only ones labelled for this release.
     serviceMonitorSelectorNilUsesHelmValues: false
     serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 2d

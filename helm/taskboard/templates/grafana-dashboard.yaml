@@ -1,0 +1,12 @@
+{{- if .Values.monitoring.grafanaDashboard.enabled }}
+# Picked up by the Grafana dashboard sidecar from kube-prometheus-stack (see monitoring/prometheus-values.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskboard-grafana-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  taskboard-backend.json: |-
+{{ .Files.Get "dashboards/taskboard-backend.json" | indent 4 }}
+{{- end }}
