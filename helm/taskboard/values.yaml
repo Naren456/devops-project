@@ -1,8 +1,8 @@
 frontend:
-  image: ghcr.io/YOUR_ORG/taskboard-frontend
+  image: ghcr.io/naren456/taskboard-frontend
   tag: latest
 backend:
-  image: ghcr.io/YOUR_ORG/taskboard-backend
+  image: ghcr.io/naren456/taskboard-backend
   tag: latest
 replicaCount: 2
 namespace: taskboard
@@ -12,6 +12,8 @@ postgres:
   database: taskboard
   username: taskboard
   password: taskboard
+  storage: 5Gi
+  storageClassName: ""   # empty = cluster default (gp3 on EKS via k8s/storageclass-gp3.yaml)
 ingress:
   enabled: false
   host: taskboard.local
@@ -25,4 +27,6 @@ resources:
   limits: {cpu: 500m, memory: 512Mi}
 monitoring:
   serviceMonitor:
+    enabled: true
+  grafanaDashboard:
     enabled: true

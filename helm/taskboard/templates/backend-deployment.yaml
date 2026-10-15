@@ -1,7 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "taskboard.fullname" . }}-backend
+  # Fixed name: the frontend nginx proxy and the Ingress both target "taskboard-backend".
+  name: taskboard-backend
+  labels: {app: taskboard-backend}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -10,6 +12,10 @@ spec:
     metadata:
       labels: {app: taskboard-backend}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml . | indent 8 }}
+      {{- end }}
       containers:
         - name: backend
           image: "{{ .Values.backend.image }}:{{ .Values.backend.tag }}"

@@ -5,7 +5,9 @@ metadata: {name: taskboard}
 spec:
   ingressClassName: nginx
   rules:
-  - host: {{ .Values.ingress.host }}
+  - {{- with .Values.ingress.host }}
+    host: {{ . }}
+    {{- end }}
     http:
       paths:
       - {path: /api, pathType: Prefix, backend: {service: {name: taskboard-backend, port: {number: 8000}}}}

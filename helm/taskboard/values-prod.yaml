@@ -1,10 +1,11 @@
 frontend:
-  image: ghcr.io/YOUR_ORG/taskboard-frontend
+  image: ghcr.io/naren456/taskboard-frontend
 backend:
-  image: ghcr.io/YOUR_ORG/taskboard-backend
+  image: ghcr.io/naren456/taskboard-backend
 replicaCount: 2
 ingress:
   enabled: true
-  host: taskboard.example.com
+  # Empty host = match any hostname, so the app works on the raw ELB DNS name.
+  host: ""
 hpa:
   enabled: true
