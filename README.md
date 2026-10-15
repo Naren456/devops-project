@@ -364,13 +364,15 @@ DEPLOY
 
 - build backend image
 - build frontend image
-- scan both with Trivy
-- push to GHCR
+- scan both with Trivy (pinned `aquasec/trivy` container; fails on fixable HIGH/CRITICAL CVEs)
+- push to GHCR as `ghcr.io/naren456/taskboard-{backend,frontend}:<commit-sha>`
 
 ### Deploy job
 
+- skip cleanly until the `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets exist
 - install Helm
-- configure kubectl
+- configure kubectl with `aws eks update-kubeconfig`
+- run `scripts/bootstrap-cluster.sh` (ingress-nginx, metrics-server, Prometheus/Grafana)
 - run `helm upgrade --install`
 
 The image tag is the Git commit SHA.
@@ -814,4 +816,11 @@ Troubleshooting
 ```
 
 That is the actual objective of Session 21.
-# devops-project
+
+---
+
+# Submission
+
+Rubric mapping, the Trivy write-up, the AWS runbook and the screenshot checklist are in
+[docs/SUBMISSION.md](docs/SUBMISSION.md).
+

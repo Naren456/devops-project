@@ -360,104 +360,92 @@ Do not skip this step. Leaving AWS infrastructure running costs real money.
 
 ## Step 10 — Deploy to Kubernetes with Helm
 
-```bash
-kubectl apply -f k8s/namespace.yaml
+Install the cluster add-ons first (ingress-nginx, metrics-server, Prometheus + Grafana, and the gp3
+StorageClass on EKS). The script is idempotent:
 
-helm upgrade --install taskboard ./helm/taskboard \
-  --namespace taskboard \
-  --create-namespace
+```bash
+./scripts/bootstrap-cluster.sh
 ```
+
+Then deploy the chart. Images are tagged with the Git commit SHA by CI:
+
+```bash
+SHA=$(git rev-parse HEAD)
+helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
+  -f helm/taskboard/values-prod.yaml \
+  --set backend.tag=$SHA --set frontend.tag=$SHA \
+  --wait --timeout 10m
+```
+
+Once the AWS secrets are set (see `docs/SUBMISSION.md`), the `deploy` job in
+GitHub Actions runs exactly these two steps on every push to `main`.
 
 Check that everything is running:
 
 ```bash
-kubectl get pods -n taskboard
+kubectl get pods,svc,ingress,hpa -n taskboard
+helm list -n taskboard
 ```
 
-Expected output:
-
-```text
-NAME                                  READY   STATUS    RESTARTS   AGE
-taskboard-backend-xxxxxxxxx-xxxxx     1/1     Running   0          2m
-taskboard-backend-xxxxxxxxx-yyyyy     1/1     Running   0          2m
-taskboard-frontend-xxxxxxxxx-xxxxx    1/1     Running   0          2m
-taskboard-postgres-0                  1/1     Running   0          2m
-```
-
-Check services:
-
-```bash
-kubectl get svc -n taskboard
-```
-
-Check the Ingress:
-
-```bash
-kubectl get ingress -n taskboard
-```
+Expected pods: two `taskboard-backend`, two `taskboard-frontend`, one `taskboard-postgres`, all `Running`.
 
 ---
 
-## Step 11 — Enable Ingress routing
+## Step 11 — Open the app through the Ingress
+
+On EKS the ingress-nginx controller gets an AWS load balancer:
 
 ```bash
-helm upgrade --install taskboard ./helm/taskboard \
-  --namespace taskboard \
-  -f helm/taskboard/values-dev.yaml
+kubectl get svc ingress-nginx-controller -n ingress-nginx \
+  -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 ```
 
-Add the Ingress hostname to your `/etc/hosts` file:
+Open `http://<that-hostname>/`. `/` goes to the frontend and `/api` to the backend.
 
-```text
-<INGRESS_IP>    taskboard.local
+### Local rehearsal on kind (free)
+
+```bash
+kind create cluster --config k8s/kind/cluster.yaml
+docker build -t taskboard-backend:local ./backend
+docker build -t taskboard-frontend:local ./frontend
+kind load docker-image taskboard-backend:local taskboard-frontend:local --name taskboard
+INGRESS_VALUES=k8s/kind/ingress-nginx-values.yaml \
+METRICS_SERVER_ARGS="--set args={--kubelet-insecure-tls}" ./scripts/bootstrap-cluster.sh
+helm upgrade --install taskboard ./helm/taskboard -n taskboard -f helm/taskboard/values-dev.yaml \
+  --set backend.image=taskboard-backend,backend.tag=local \
+  --set frontend.image=taskboard-frontend,frontend.tag=local,hpa.enabled=true --wait
+echo "127.0.0.1 taskboard.local" | sudo tee -a /etc/hosts
 ```
 
-Open the application:
-
-```text
-http://taskboard.local
-```
+Open `http://taskboard.local:8088`.
 
 ---
 
 ## Step 12 — View metrics in Prometheus and Grafana
 
-Install the monitoring stack:
+`bootstrap-cluster.sh` installed `kube-prometheus-stack` in the `monitoring` namespace, and the
+TaskBoard chart ships a `ServiceMonitor` plus a Grafana dashboard.
+
+Prometheus targets (look for `taskboard-backend`, state `UP`):
 
 ```bash
-helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --create-namespace \
-  -f monitoring/prometheus-values.yaml
+kubectl port-forward svc/kube-prometheus-stack-prometheus -n monitoring 9090:9090
+# http://localhost:9090/targets
 ```
 
-Port-forward Prometheus:
+Grafana (login `admin` / `taskboard-admin`, dashboard **TaskBoard Backend**):
 
 ```bash
-kubectl port-forward svc/monitoring-kube-prometheus-prometheus -n monitoring 9090:9090
+kubectl port-forward svc/kube-prometheus-stack-grafana -n monitoring 3001:80
+# http://localhost:3001
 ```
 
-Open:
-
-```text
-http://localhost:9090
-```
-
-Search for `http_requests_total` to see request metrics from TaskBoard.
-
-Port-forward Grafana:
+Generate traffic so the panels and the HPA move:
 
 ```bash
-kubectl port-forward svc/monitoring-grafana -n monitoring 3001:80
+URL=http://<ingress-host>/api/tasks ./scripts/load-test.sh
+kubectl get hpa -n taskboard -w
 ```
-
-Open:
-
-```text
-http://localhost:3001
-```
-
-Default credentials: `admin` / `prom-operator`
 
 ---
 
