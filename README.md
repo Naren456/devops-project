@@ -7,6 +7,7 @@
 ![Observability](https://img.shields.io/badge/Monitoring-Prometheus%20%26%20Grafana-orange?logo=prometheus)
 ![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-green?logo=argo)
 
+
 **StockDesk** is a hardware inventory / stock-tracking application used as the vehicle for a full, production-grade DevOps lifecycle: containers, CI/CD, DevSecOps scanning, infrastructure as code, Kubernetes, Helm, GitOps, and observability.
 
 Presentation deck: _add `StockDesk_DevOps_Capstone.pptx` here for M10._
