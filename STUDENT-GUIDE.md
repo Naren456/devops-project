@@ -1,22 +1,24 @@
-# TaskBoard — Student Project Guide
+# StockDesk — Student Project Guide
 
 **Session 21 DevOps Final Capstone**
 
-This guide is written for students. It explains what TaskBoard is, how the entire system fits together, and how to run every part of it — step by step — on your own machine.
+This guide is written for students. It explains what StockDesk is, how the entire system fits together, and how to run every part of it — step by step — on your own machine.
 
 Read this first. Everything else in the repository builds on what is described here.
 
 ---
 
-## What is TaskBoard?
+## What is StockDesk?
 
-TaskBoard is a small but realistic project management application. It is the kind of application that a startup might actually build and ship.
+StockDesk is a small but realistic hardware inventory / stock-tracking application. It is the kind of application that a hardware store or warehouse might actually build and ship.
 
 It has:
 
 - A React frontend — the browser UI
 - A FastAPI Python backend — the API server
 - A PostgreSQL database — persistent storage
+
+Each product has a name, SKU, category, quantity and price, and its stock status (`IN_STOCK`, `LOW_STOCK`, `OUT_OF_STOCK`) is derived automatically from the quantity on hand.
 
 The point of the capstone is not the application itself. The point is to take this application and apply every DevOps practice from the course to it: containers, CI/CD, security scanning, infrastructure as code, Kubernetes, Helm, and monitoring.
 
@@ -93,7 +95,7 @@ Docker will:
 http://localhost:3000
 ```
 
-You should see the TaskBoard dashboard.
+You should see the StockDesk dashboard.
 
 ### Open the backend API documentation
 
@@ -117,7 +119,7 @@ http://localhost:8000/metrics   — Prometheus-formatted metrics
 docker compose down
 ```
 
-Remove the database volume too (wipes all task data):
+Remove the database volume too (wipes all inventory data):
 
 ```bash
 docker compose down -v
@@ -152,7 +154,7 @@ pip install -r requirements.txt
 ### Configure the database connection
 
 ```bash
-export DATABASE_URL='postgresql+psycopg://taskboard:taskboard@localhost:5432/taskboard'
+export DATABASE_URL='postgresql+psycopg://stockdesk:stockdesk@localhost:5432/stockdesk'
 ```
 
 ### Run migrations
@@ -222,13 +224,13 @@ pytest -v
 You should see output like:
 
 ```text
-tests/test_tasks.py::test_create_task PASSED
-tests/test_tasks.py::test_get_tasks PASSED
-tests/test_tasks.py::test_update_task PASSED
-tests/test_tasks.py::test_delete_task PASSED
-tests/test_tasks.py::test_health_endpoint PASSED
+tests/test_api.py::test_health PASSED
+tests/test_api.py::test_create_product PASSED
+tests/test_api.py::test_list_products PASSED
+tests/test_api.py::test_update_product_recomputes_status PASSED
+tests/test_api.py::test_delete_product PASSED
 
-5 passed in 1.23s
+11 passed in 0.20s
 ```
 
 If any test fails, fix the code before proceeding.
@@ -245,25 +247,25 @@ The backend exposes these endpoints:
 | GET | `/health` | Liveness check — is the process alive? |
 | GET | `/ready` | Readiness check — can it serve traffic? |
 | GET | `/metrics` | Prometheus metrics |
-| GET | `/api/tasks` | List all tasks |
-| GET | `/api/tasks/{id}` | Get one task by ID |
-| POST | `/api/tasks` | Create a new task |
-| PUT | `/api/tasks/{id}` | Update a task |
-| DELETE | `/api/tasks/{id}` | Delete a task |
-| GET | `/api/tasks/stats` | Summary counts by status |
+| GET | `/api/products` | List all products |
+| GET | `/api/products/{id}` | Get one product by ID |
+| POST | `/api/products` | Create a new product |
+| PUT | `/api/products/{id}` | Update a product |
+| DELETE | `/api/products/{id}` | Delete a product |
+| GET | `/api/products/stats` | Summary counts by stock status |
 
-### Create a task using curl
+### Create a product using curl
 
 ```bash
-curl -X POST http://localhost:8000/api/tasks \
+curl -X POST http://localhost:8000/api/products \
   -H "Content-Type: application/json" \
-  -d '{"title": "Set up CI/CD", "status": "in_progress", "priority": "high"}'
+  -d '{"name": "Cordless Drill 18V", "sku": "DRL-018", "category": "Power Tools", "quantity": 24, "price": 89.99}'
 ```
 
-### List all tasks
+### List all products
 
 ```bash
-curl http://localhost:8000/api/tasks
+curl http://localhost:8000/api/products
 ```
 
 ---
@@ -275,19 +277,19 @@ If you want to understand the build process:
 ### Backend image
 
 ```bash
-docker build -t taskboard-backend:local ./backend
+docker build -t stockdesk-backend:local ./backend
 ```
 
 ### Frontend image
 
 ```bash
-docker build -t taskboard-frontend:local ./frontend
+docker build -t stockdesk-frontend:local ./frontend
 ```
 
 ### Inspect the images
 
 ```bash
-docker images | grep taskboard
+docker images | grep stockdesk
 ```
 
 ---
@@ -371,8 +373,8 @@ Then deploy the chart. Images are tagged with the Git commit SHA by CI:
 
 ```bash
 SHA=$(git rev-parse HEAD)
-helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
-  -f helm/taskboard/values-prod.yaml \
+helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk --create-namespace \
+  -f helm/stockdesk/values-prod.yaml \
   --set backend.tag=$SHA --set frontend.tag=$SHA \
   --wait --timeout 10m
 ```
@@ -383,11 +385,11 @@ GitHub Actions runs exactly these two steps on every push to `main`.
 Check that everything is running:
 
 ```bash
-kubectl get pods,svc,ingress,hpa -n taskboard
-helm list -n taskboard
+kubectl get pods,svc,ingress,hpa -n stockdesk
+helm list -n stockdesk
 ```
 
-Expected pods: two `taskboard-backend`, two `taskboard-frontend`, one `taskboard-postgres`, all `Running`.
+Expected pods: two `stockdesk-backend`, two `stockdesk-frontend`, one `stockdesk-postgres`, all `Running`.
 
 ---
 
@@ -406,34 +408,34 @@ Open `http://<that-hostname>/`. `/` goes to the frontend and `/api` to the backe
 
 ```bash
 kind create cluster --config k8s/kind/cluster.yaml
-docker build -t taskboard-backend:local ./backend
-docker build -t taskboard-frontend:local ./frontend
-kind load docker-image taskboard-backend:local taskboard-frontend:local --name taskboard
+docker build -t stockdesk-backend:local ./backend
+docker build -t stockdesk-frontend:local ./frontend
+kind load docker-image stockdesk-backend:local stockdesk-frontend:local --name stockdesk
 INGRESS_VALUES=k8s/kind/ingress-nginx-values.yaml \
 METRICS_SERVER_ARGS="--set args={--kubelet-insecure-tls}" ./scripts/bootstrap-cluster.sh
-helm upgrade --install taskboard ./helm/taskboard -n taskboard -f helm/taskboard/values-dev.yaml \
-  --set backend.image=taskboard-backend,backend.tag=local \
-  --set frontend.image=taskboard-frontend,frontend.tag=local,hpa.enabled=true --wait
-echo "127.0.0.1 taskboard.local" | sudo tee -a /etc/hosts
+helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk -f helm/stockdesk/values-dev.yaml \
+  --set backend.image=stockdesk-backend,backend.tag=local \
+  --set frontend.image=stockdesk-frontend,frontend.tag=local,hpa.enabled=true --wait
+echo "127.0.0.1 stockdesk.local" | sudo tee -a /etc/hosts
 ```
 
-Open `http://taskboard.local:8088`.
+Open `http://stockdesk.local:8088`.
 
 ---
 
 ## Step 12 — View metrics in Prometheus and Grafana
 
 `bootstrap-cluster.sh` installed `kube-prometheus-stack` in the `monitoring` namespace, and the
-TaskBoard chart ships a `ServiceMonitor` plus a Grafana dashboard.
+StockDesk chart ships a `ServiceMonitor` plus a Grafana dashboard.
 
-Prometheus targets (look for `taskboard-backend`, state `UP`):
+Prometheus targets (look for `stockdesk-backend`, state `UP`):
 
 ```bash
 kubectl port-forward svc/kube-prometheus-stack-prometheus -n monitoring 9090:9090
 # http://localhost:9090/targets
 ```
 
-Grafana (login `admin` / `taskboard-admin`, dashboard **TaskBoard Backend**):
+Grafana (login `admin` / `stockdesk-admin`, dashboard **StockDesk Backend**):
 
 ```bash
 kubectl port-forward svc/kube-prometheus-stack-grafana -n monitoring 3001:80
@@ -443,8 +445,8 @@ kubectl port-forward svc/kube-prometheus-stack-grafana -n monitoring 3001:80
 Generate traffic so the panels and the HPA move:
 
 ```bash
-URL=http://<ingress-host>/api/tasks ./scripts/load-test.sh
-kubectl get hpa -n taskboard -w
+URL=http://<ingress-host>/api/products ./scripts/load-test.sh
+kubectl get hpa -n stockdesk -w
 ```
 
 ---
@@ -455,18 +457,18 @@ kubectl get hpa -n taskboard -w
 session21-python/
 ├── backend/                    # FastAPI Python application
 │   ├── app/                    # Main application code
-│   │   ├── main.py             # FastAPI app instance, routes registration
+│   │   ├── main.py             # FastAPI app instance + all route handlers
 │   │   ├── models.py           # SQLAlchemy ORM models
 │   │   ├── schemas.py          # Pydantic request/response schemas
-│   │   ├── database.py         # Database connection and session factory
-│   │   └── routes/             # API route handlers
+│   │   ├── db.py               # Database connection and session factory
+│   │   └── config.py           # App settings (DATABASE_URL, app name)
 │   ├── alembic/                # Database migration files
 │   ├── tests/                  # Pytest test suite
 │   ├── Dockerfile              # Container build instructions
 │   └── requirements.txt        # Python package dependencies
 ├── frontend/                   # React + Vite frontend
-│   ├── src/                    # React source files
-│   ├── public/                 # Static assets
+│   ├── src/                    # React source files (main.jsx, api.js, styles.css)
+│   ├── index.html              # Vite entry HTML
 │   ├── Dockerfile              # Multi-stage Node build + Nginx runtime
 │   └── nginx.conf              # Nginx routing config
 ├── docker-compose.yml          # Local three-tier stack
@@ -475,7 +477,7 @@ session21-python/
 │   ├── variables.tf
 │   ├── outputs.tf
 │   └── terraform.tfvars.example
-├── helm/taskboard/             # Kubernetes Helm chart
+├── helm/stockdesk/             # Kubernetes Helm chart
 │   ├── Chart.yaml
 │   ├── values.yaml
 │   ├── values-dev.yaml
@@ -521,7 +523,7 @@ Then run pytest again.
 Read the logs:
 
 ```bash
-kubectl logs <pod-name> -n taskboard
+kubectl logs <pod-name> -n stockdesk
 ```
 
 The most common causes: wrong image tag, missing environment variable, or database not ready.
@@ -547,14 +549,14 @@ export AWS_DEFAULT_REGION=ap-south-1
 Use `--install` flag:
 
 ```bash
-helm upgrade --install taskboard ./helm/taskboard -n taskboard
+helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk
 ```
 
 ---
 
 ## What to build for your final project
 
-You will build your own application using this same architecture. The application domain must be your own — not a copy of TaskBoard.
+You will build your own application using this same architecture. The application domain must be your own — not a copy of StockDesk.
 
 Ideas:
 
@@ -582,16 +584,16 @@ docker compose down -v             # Stop and delete data
 pytest -v                          # Run tests
 
 # Kubernetes
-kubectl get pods -n taskboard
-kubectl get svc -n taskboard
-kubectl get ingress -n taskboard
-kubectl logs <pod> -n taskboard
-kubectl describe pod <pod> -n taskboard
+kubectl get pods -n stockdesk
+kubectl get svc -n stockdesk
+kubectl get ingress -n stockdesk
+kubectl logs <pod> -n stockdesk
+kubectl describe pod <pod> -n stockdesk
 
 # Helm
-helm upgrade --install taskboard ./helm/taskboard -n taskboard
-helm list -n taskboard
-helm rollback taskboard -n taskboard
+helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk
+helm list -n stockdesk
+helm rollback stockdesk -n stockdesk
 
 # Terraform
 terraform init

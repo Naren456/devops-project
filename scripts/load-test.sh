@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate traffic against the backend through the Ingress so the HPA and Grafana panels move.
 set -euo pipefail
-URL="${URL:-http://taskboard.local/api/tasks}"
+URL="${URL:-http://stockdesk.local/api/products}"
 REQUESTS="${REQUESTS:-2000}"
 for i in $(seq 1 "$REQUESTS"); do
   curl -s "$URL" >/dev/null &

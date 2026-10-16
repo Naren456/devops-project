@@ -1,12 +1,12 @@
 # Values for prometheus-community/kube-prometheus-stack (installed by scripts/bootstrap-cluster.sh).
 grafana:
   enabled: true
-  adminPassword: taskboard-admin   # demo only; change for anything real
+  adminPassword: stockdesk-admin   # demo only; change for anything real
   sidecar:
     dashboards:
       enabled: true
       label: grafana_dashboard
-      # Load the TaskBoard dashboard ConfigMap shipped by the Helm chart in the taskboard namespace.
+      # Load the StockDesk dashboard ConfigMap shipped by the Helm chart in the stockdesk namespace.
       searchNamespace: ALL
 prometheus:
   prometheusSpec:

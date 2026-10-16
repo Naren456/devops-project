@@ -8,8 +8,8 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from .config import settings
 from .db import Base, engine, get_db
-from .models import Task
-from .schemas import StatsOut, TaskCreate, TaskOut, TaskUpdate
+from .models import Product, derive_status
+from .schemas import ProductCreate, ProductOut, ProductUpdate, StatsOut
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,49 +31,56 @@ def health():
 
 @app.get("/ready")
 def ready(db: Session = Depends(get_db)):
-    db.execute(select(func.count(Task.id)))
+    db.execute(select(func.count(Product.id)))
     return {"status": "READY"}
 
-@app.get("/api/tasks", response_model=list[TaskOut])
-def list_tasks(db: Session = Depends(get_db)):
-    return list(db.scalars(select(Task).order_by(Task.id.desc())))
+@app.get("/api/products", response_model=list[ProductOut])
+def list_products(db: Session = Depends(get_db)):
+    return list(db.scalars(select(Product).order_by(Product.id.desc())))
 
-@app.get("/api/tasks/stats", response_model=StatsOut)
+@app.get("/api/products/stats", response_model=StatsOut)
 def stats(db: Session = Depends(get_db)):
-    rows = db.execute(select(Task.status, func.count(Task.id)).group_by(Task.status)).all()
-    counts = {status: count for status, count in rows}
-    return StatsOut(total=sum(counts.values()), todo=counts.get("TODO", 0), inProgress=counts.get("IN_PROGRESS", 0), done=counts.get("DONE", 0))
+    rows = db.execute(select(Product.status, func.count(Product.id)).group_by(Product.status)).all()
+    counts = {s: c for s, c in rows}
+    return StatsOut(
+        total=sum(counts.values()),
+        inStock=counts.get("IN_STOCK", 0),
+        lowStock=counts.get("LOW_STOCK", 0),
+        outOfStock=counts.get("OUT_OF_STOCK", 0),
+    )
 
-@app.get("/api/tasks/{task_id}", response_model=TaskOut)
-def get_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.get(Task, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return task
+@app.get("/api/products/{product_id}", response_model=ProductOut)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
 
-@app.post("/api/tasks", response_model=TaskOut, status_code=status.HTTP_201_CREATED)
-def create_task(payload: TaskCreate, db: Session = Depends(get_db)):
-    task = Task(**payload.model_dump())
-    db.add(task)
+@app.post("/api/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED)
+def create_product(payload: ProductCreate, db: Session = Depends(get_db)):
+    product = Product(**payload.model_dump())
+    product.status = derive_status(product.quantity)
+    db.add(product)
     db.commit()
-    db.refresh(task)
-    return task
+    db.refresh(product)
+    return product
 
-@app.put("/api/tasks/{task_id}", response_model=TaskOut)
-def update_task(task_id: int, payload: TaskUpdate, db: Session = Depends(get_db)):
-    task = db.get(Task, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+@app.put("/api/products/{product_id}", response_model=ProductOut)
+def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db)):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
     for key, value in payload.model_dump(exclude_unset=True).items():
-        setattr(task, key, value)
+        setattr(product, key, value)
+    product.status = derive_status(product.quantity)
     db.commit()
-    db.refresh(task)
-    return task
+    db.refresh(product)
+    return product
 
-@app.delete("/api/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(task_id: int, db: Session = Depends(get_db)):
-    task = db.get(Task, task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    db.delete(task)
+@app.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    product = db.get(Product, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(product)
     db.commit()

@@ -306,6 +306,6 @@ Documentation
 ## Grading Policy
 
 - Late submissions: 5 points deducted per 24-hour period after the deadline.
-- Plagiarism: A submission that is a copy of another student's work or a direct clone of the TaskBoard reference project without meaningful changes receives a zero for all modules.
-- The application domain must be your own. The DevOps layer may follow the same architecture as TaskBoard.
+- Plagiarism: A submission that is a copy of another student's work or a direct clone of the StockDesk reference project without meaningful changes receives a zero for all modules.
+- The application domain must be your own. The DevOps layer may follow the same architecture as StockDesk.
 - AWS cost responsibility: Students are responsible for running `terraform destroy` after the evaluation. Runaway AWS bills are not the course's responsibility.

@@ -1,4 +1,4 @@
-name: TaskBoard Python CI/CD
+name: StockDesk Python CI/CD
 on:
   push:
     branches: [main]
@@ -8,7 +8,7 @@ env:
   REGISTRY: ghcr.io
   TRIVY_IMAGE: aquasec/trivy:0.67.2
   AWS_REGION: ap-south-1
-  EKS_CLUSTER: taskboard-eks
+  EKS_CLUSTER: stockdesk-eks
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -46,24 +46,24 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build images
         run: |
-          docker build -t ${{ steps.prefix.outputs.value }}/taskboard-backend:${{ github.sha }} ./backend
-          docker build -t ${{ steps.prefix.outputs.value }}/taskboard-frontend:${{ github.sha }} ./frontend
+          docker build -t ${{ steps.prefix.outputs.value }}/stockdesk-backend:${{ github.sha }} ./backend
+          docker build -t ${{ steps.prefix.outputs.value }}/stockdesk-frontend:${{ github.sha }} ./frontend
       # Trivy runs from a pinned container image rather than trivy-action.
       - name: Trivy scan backend
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $TRIVY_IMAGE image \
             --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            ${{ steps.prefix.outputs.value }}/taskboard-backend:${{ github.sha }}
+            ${{ steps.prefix.outputs.value }}/stockdesk-backend:${{ github.sha }}
       - name: Trivy scan frontend
         run: |
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock $TRIVY_IMAGE image \
             --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
-            ${{ steps.prefix.outputs.value }}/taskboard-frontend:${{ github.sha }}
+            ${{ steps.prefix.outputs.value }}/stockdesk-frontend:${{ github.sha }}
       - name: Push images
         if: github.event_name == 'push'
         run: |
-          docker push ${{ steps.prefix.outputs.value }}/taskboard-backend:${{ github.sha }}
-          docker push ${{ steps.prefix.outputs.value }}/taskboard-frontend:${{ github.sha }}
+          docker push ${{ steps.prefix.outputs.value }}/stockdesk-backend:${{ github.sha }}
+          docker push ${{ steps.prefix.outputs.value }}/stockdesk-frontend:${{ github.sha }}
   deploy:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: build-scan-push
@@ -96,11 +96,11 @@ jobs:
       - name: Deploy with Helm
         if: steps.creds.outputs.ready == 'true'
         run: |
-          helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
-            -f ./helm/taskboard/values-prod.yaml \
+          helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk --create-namespace \
+            -f ./helm/stockdesk/values-prod.yaml \
             --set backend.tag=${{ github.sha }} \
             --set frontend.tag=${{ github.sha }} \
-            --set backend.image=${{ needs.build-scan-push.outputs.image_prefix }}/taskboard-backend \
-            --set frontend.image=${{ needs.build-scan-push.outputs.image_prefix }}/taskboard-frontend \
+            --set backend.image=${{ needs.build-scan-push.outputs.image_prefix }}/stockdesk-backend \
+            --set frontend.image=${{ needs.build-scan-push.outputs.image_prefix }}/stockdesk-frontend \
             --wait --timeout 10m
-          kubectl get pods,svc,ingress,hpa -n taskboard
+          kubectl get pods,svc,ingress,hpa -n stockdesk
