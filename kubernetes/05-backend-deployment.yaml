@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stockdesk-backend
+  namespace: stockdesk
+  labels:
+    app: stockdesk-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stockdesk-backend
+  template:
+    metadata:
+      labels:
+        app: stockdesk-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/naren456/stockdesk-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: stockdesk-backend-config
+                  key: APP_NAME
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: stockdesk-backend-config
+                  key: ENVIRONMENT
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stockdesk-secrets
+                  key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3

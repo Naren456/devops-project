@@ -1,0 +1,30 @@
+# Gitleaks Configuration for Secret Scanning
+title = "StockDesk Secret Detection Policy"
+
+[extend]
+# Extend default gitleaks rules
+
+[[rules]]
+description = "AWS Access Key ID"
+id = "aws-access-key-id"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "PostgreSQL Credentials String"
+id = "postgres-password-leak"
+regex = '''(?i)postgres(?:ql)?://[a-zA-Z0-9_]+:([a-zA-Z0-9_!@#$%^&*()+=]+)@[a-zA-Z0-9_.-]+:[0-9]+/'''
+tags = ["database", "postgres"]
+
+[allowlist]
+description = "Allow dummy example secrets in docs and tests"
+paths = [
+    '''backend/tests/.*''',
+    '''README.md''',
+    '''terraform.tfvars.example'''
+]
+regexes = [
+    '''stockdesk_secure_password''',
+    '''replace-with-test-value''',
+    '''stockdesk:stockdesk'''
+]

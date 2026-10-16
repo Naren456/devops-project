@@ -1,0 +1,19 @@
+# Bandit Configuration for Python Static Application Security Testing (SAST)
+profiles:
+  default:
+    include:
+      - any_other_function_with_shell_equals_true
+      - hardcoded_password_string
+      - hardcoded_sql_expression
+      - sql_injection
+      - request_without_timeout
+      - try_except_pass
+
+exclude_dirs:
+  - ".venv"
+  - "venv"
+  - "tests"
+  - "alembic"
+
+skips:
+  - B101  # Allow assert in non-test files if needed
