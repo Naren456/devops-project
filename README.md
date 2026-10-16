@@ -251,6 +251,10 @@ docker compose up --build       # boots postgres + backend + frontend
 docker compose ps
 ```
 
+**`docker compose up --build` — multi-stage backend (`python:3.12-slim`, non-root `appuser`) + frontend (`node:22-alpine` → `nginx-unprivileged`) built and all three services started:**
+
+![M4 docker compose up --build](screenshot/m4-docker-compose-build.png)
+
 Access points:
 - Frontend UI: `http://localhost:3000`
 - Backend API docs: `http://localhost:8000/docs`
