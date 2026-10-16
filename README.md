@@ -10,6 +10,12 @@
 
 **StockDesk** is a hardware inventory / stock-tracking application used as the vehicle for a full, production-grade DevOps lifecycle: containers, CI/CD, DevSecOps scanning, infrastructure as code, Kubernetes, Helm, GitOps, and observability.
 
+### Demo video
+
+[![Watch the demo on Loom](https://img.shields.io/badge/Demo-Watch%20on%20Loom-625DF5?logo=loom&logoColor=white)](https://www.loom.com/share/17e254cf0a774a64ac4bbb830a0a734e)
+
+Recorded walkthrough of the full flow (commit → CI/CD pipeline → deployment update): **[https://www.loom.com/share/17e254cf0a774a64ac4bbb830a0a734e](https://www.loom.com/share/17e254cf0a774a64ac4bbb830a0a734e)**
+
 Presentation deck: _add `StockDesk_DevOps_Capstone.pptx` here for M10._
 
 ---
