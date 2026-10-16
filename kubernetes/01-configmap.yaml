@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stockdesk-backend-config
+  namespace: stockdesk
+data:
+  APP_NAME: "StockDesk Capstone"
+  ENVIRONMENT: "production"
+  DB_HOST: "stockdesk-postgres"
+  DB_PORT: "5432"
+  DB_NAME: "stockdesk"

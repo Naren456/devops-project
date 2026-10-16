@@ -1,0 +1,14 @@
+# Trivy Container & Dependency Vulnerability Scanning Policy
+severity:
+  - HIGH
+  - CRITICAL
+
+ignore-unfixed: true
+
+exit-code: 1
+
+format: table
+
+vuln-type:
+  - os
+  - library

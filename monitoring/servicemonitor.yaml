@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: stockdesk-backend-metrics
+  namespace: stockdesk
+  labels:
+    release: prometheus
+    app: stockdesk-backend
+spec:
+  selector:
+    matchLabels:
+      app: stockdesk-backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s

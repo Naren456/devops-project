@@ -1,827 +1,460 @@
-# Session 21 — DevOps Final Capstone: StockDesk (Python)
+# StockDesk — End-to-End Cloud-Native DevOps Capstone
 
-This is the single-project capstone for the DevOps course. Students first understand and deploy **StockDesk**, then replicate the same engineering and DevOps architecture with their own final application.
+![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blue?logo=github-actions)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-EKS%20v1.34-326ce5?logo=kubernetes)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform)
+![DevSecOps](https://img.shields.io/badge/DevSecOps-Trivy%20%7C%20Gitleaks%20%7C%20Bandit-critical?logo=security)
+![Observability](https://img.shields.io/badge/Monitoring-Prometheus%20%26%20Grafana-orange?logo=prometheus)
+![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-green?logo=argo)
 
-## 1. What we are building
+**StockDesk** is a hardware inventory / stock-tracking application used as the vehicle for a full, production-grade DevOps lifecycle: containers, CI/CD, DevSecOps scanning, infrastructure as code, Kubernetes, Helm, GitOps, and observability.
 
-StockDesk is a small but realistic SaaS-style hardware inventory / stock-tracking application:
+Presentation deck: _add `StockDesk_DevOps_Capstone.pptx` here for M10._
 
-- React + Vite frontend
-- Responsive HTML/JSX + CSS UI
-- FastAPI Python backend
-- PostgreSQL database
-- SQLAlchemy ORM
-- Alembic database migrations
-- REST APIs
-- Pytest automated tests
-- Docker containers
-- GitHub Actions CI/CD
-- Trivy container security scanning
-- GitHub Container Registry
-- Terraform for AWS infrastructure
-- AWS VPC + EKS
-- Kubernetes
-- Helm
-- Ingress
-- HPA
-- Prometheus + Grafana
-- Health/readiness endpoints
-- Troubleshooting exercises
+---
 
-The point is not to teach isolated tools. The point is to show how a real application travels from a developer laptop to a monitored Kubernetes environment.
+## Table of Contents
+1. [Project Overview](#1-project-overview)
+2. [Architecture Diagram](#2-architecture-diagram)
+3. [Technologies Used](#3-technologies-used)
+4. [Application Setup](#4-application-setup)
+5. [Docker Setup](#5-docker-setup)
+6. [Kubernetes Deployment](#6-kubernetes-deployment)
+7. [Helm Deployment](#7-helm-deployment)
+8. [Terraform Infrastructure](#8-terraform-infrastructure)
+9. [CI/CD Pipeline](#9-cicd-pipeline)
+10. [DevSecOps Implementation](#10-devsecops-implementation)
+11. [Monitoring & Observability](#11-monitoring--observability)
+12. [GitOps Workflow](#12-gitops-workflow)
+13. [Troubleshooting Lab](#13-troubleshooting-lab)
+14. [Lessons Learned](#14-lessons-learned)
 
+---
+
+## 1. Project Overview
+
+> **Live proof:** StockDesk running locally via `docker compose` — dashboard with Total items / In stock / Low stock / Out of stock cards.
+
+![StockDesk dashboard locally (M1/M4)](screenshot/m1-app-localhost-3000.png)
+
+> **Live proof:** Same app served through the EKS ingress-nginx load balancer.
+
+![StockDesk via Ingress on EKS (M8)](screenshot/m8-app-via-ingress.png)
+
+This capstone delivers an automated, secure, cloud-native delivery and operations lifecycle for **StockDesk** — a hardware store inventory tracker where each product has a name, SKU, category, quantity and price, and its stock status (`IN_STOCK`, `LOW_STOCK`, `OUT_OF_STOCK`) is derived automatically from the quantity on hand.
+
+- **Application Layer:** React 18 + Vite single-page frontend, FastAPI (Python 3.12) backend, PostgreSQL 16 with Alembic schema migrations.
+- **Continuous Integration & DevSecOps:** Pytest unit tests, secret scanning (Gitleaks), SAST (Bandit), dependency audit (pip-audit / npm audit), container CVE scanning (Trivy), and a security gate that blocks HIGH/CRITICAL findings.
+- **Continuous Delivery & GitOps:** Immutable image tagging by Git commit SHA, publication to GitHub Container Registry (GHCR), and declarative reconciliation with ArgoCD.
+- **Infrastructure as Code:** Modular Terraform provisioning a VPC (public/private subnets, NAT), and an Amazon EKS managed cluster.
+- **Platform Engineering:** Declarative Kubernetes objects (Deployments, Services, ConfigMap, Secret, Ingress, PVC, HPA) plus a Helm chart.
+- **Observability:** Prometheus `/metrics` instrumentation, a ServiceMonitor, a Grafana dashboard, and alerting rules.
+- **Incident Management:** A troubleshooting suite of deliberately broken manifests for root-cause practice.
+
+---
+
+## 2. Architecture Diagram
+
+### End-to-End DevOps Lifecycle Flow
 ```text
-Developer
-   |
-   v
-Git / GitHub
-   |
-   v
-GitHub Actions
-   |-- pytest
-   |-- frontend build
-   |-- Docker build
-   |-- Trivy scan
-   `-- push images to GHCR
-              |
-              v
-        Terraform
-              |
-       AWS VPC + EKS
-              |
-              v
-            Helm
-              |
-      +-------+--------+
-      |                |
-   Frontend          Backend
-    React            FastAPI
-      |                |
-      +-------> PostgreSQL
-              |
-       Prometheus
-              |
-           Grafana
+Developer Git Push
+       │
+       ▼
+GitHub Repository (Single Source of Truth)
+       │
+       ▼
+GitHub Actions CI Pipeline
+       ├── 1. Unit Tests (Pytest) & UI Build (Vite)
+       ├── 2. Secret Scan (Gitleaks)
+       ├── 3. SAST Code Scan (Bandit)
+       ├── 4. SCA Dependency Scan (pip-audit & npm audit)
+       ├── 5. Multi-stage Docker Container Build
+       ├── 6. Container Image CVE Scan (Trivy)
+       │       │
+       │       ▼ (Gate: stop on HIGH/CRITICAL CVEs)
+       └── 7. Push SHA-tagged images to GHCR
+                   │
+                   ▼
+       +───────────────────────────────────+
+       │   GitOps Engine (ArgoCD)          │
+       │   Reconciles helm/stockdesk       │
+       +─────────────────┬─────────────────+
+                         │ Reconciles
+                         ▼
+       +───────────────────────────────────+
+       │      AWS Cloud (ap-south-1)       │
+       │   Terraform-provisioned VPC       │
+       │   AWS EKS Kubernetes Cluster      │
+       │                                   │
+       │  [Ingress-NGINX Controller / ELB] │
+       │        │                 │        │
+       │        ▼                 ▼        │
+       │  Frontend Pods     Backend Pods   │
+       │   (Nginx/React)     (FastAPI)     │
+       │                           │       │
+       │                     PostgreSQL    │
+       │                      (Stateful)   │
+       │                           │       │
+       │       [Prometheus + Grafana]      │
+       +───────────────────────────────────+
+```
+
+### Kubernetes Cluster Architecture
+```mermaid
+flowchart TD
+    Browser["User Web Browser"]
+
+    subgraph K8s ["Kubernetes Cluster (Namespace: stockdesk)"]
+        Ingress["Ingress-NGINX Controller<br/>AWS ELB"]
+
+        subgraph FrontendTier ["Frontend Tier"]
+            F_SVC["stockdesk-frontend (ClusterIP: 80)"]
+            F_DEP["frontend Deployment (2 replicas)<br/>Nginx + React build"]
+        end
+        subgraph BackendTier ["Backend Tier"]
+            B_SVC["stockdesk-backend (ClusterIP: 8000)"]
+            B_DEP["backend Deployment (2 replicas)<br/>FastAPI / Python 3.12"]
+            HPA["HorizontalPodAutoscaler<br/>60% CPU (2–6 pods)"]
+        end
+        subgraph StorageTier ["Data Tier"]
+            DB_SVC["stockdesk-postgres (ClusterIP: 5432)"]
+            DB_DEP["postgres Deployment (1 replica)<br/>PostgreSQL 16"]
+            PVC["PersistentVolumeClaim (5Gi gp3)"]
+        end
+        subgraph MonitoringTier ["Observability"]
+            SM["ServiceMonitor (/metrics)"]
+            PROM["Prometheus"]
+            GRAF["Grafana"]
+        end
+    end
+
+    Browser -->|/| Ingress
+    Ingress -->|/api| B_SVC
+    Ingress -->|/| F_SVC
+    F_SVC --> F_DEP
+    B_SVC --> B_DEP
+    B_DEP --> DB_SVC
+    DB_SVC --> DB_DEP
+    DB_DEP --> PVC
+    HPA -. Scales .-> B_DEP
+    SM -. Scrapes .-> B_DEP
+    PROM --> SM
+    GRAF --> PROM
 ```
 
 ---
 
-## 2. Repository structure
+## 3. Technologies Used
 
-```text
-session21-devops-capstone-final/
-├── frontend/                 # React application and CSS
-├── backend/                  # FastAPI application
-│   ├── app/                  # API, models, schemas, DB config
-│   ├── tests/                # Pytest tests
-│   └── alembic/              # DB migrations
-├── docker-compose.yml        # Full local stack
-├── terraform/                # AWS VPC + EKS infrastructure
-├── helm/stockdesk/            # Kubernetes package
-├── k8s/                      # namespace/bootstrap manifests
-├── monitoring/               # Prometheus/Grafana values
-├── troubleshooting/          # deliberately broken manifests
-├── scripts/                  # load-test helpers
-└── .github/workflows/        # CI/CD
-```
-
----
-
-# PART A — UNDERSTAND THE APPLICATION
-
-## 3. Frontend
-
-The frontend is intentionally closer to a real SaaS dashboard than a tutorial CRUD page.
-
-It contains:
-
-- dark sidebar
-- workspace navigation
-- dashboard header
-- KPI cards (total / in-stock / low-stock / out-of-stock)
-- product inventory table
-- stock-status filters
-- search by name, SKU or category
-- inline quantity steppers (restock / sell)
-- stock-status badges
-- low-stock callout
-- create / edit product modal
-- responsive CSS
-- loading and backend-error states
-
-The browser calls `/api/products` and `/api/products/stats`.
-
-The browser does **not** need to know the internal backend hostname. Nginx and Kubernetes Ingress handle routing.
-
-## 4. Backend
-
-FastAPI exposes:
-
-```text
-GET    /
-GET    /health
-GET    /ready
-GET    /metrics
-
-GET    /api/products
-GET    /api/products/{id}
-POST   /api/products
-PUT    /api/products/{id}
-DELETE /api/products/{id}
-GET    /api/products/stats
-```
-
-Swagger documentation is available at `/docs` when the backend is running.
-
-### Why `/health`?
-
-A container can be alive while its application is unhealthy. `/health` gives Kubernetes a cheap liveness check.
-
-### Why `/ready`?
-
-Readiness answers a different question: **can this application serve traffic now?** The endpoint verifies database access before returning READY.
-
-### Why `/metrics`?
-
-Prometheus needs machine-readable metrics. The FastAPI Prometheus instrumentator exposes request metrics for monitoring.
+| Category | Technology | Version | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Backend** | Python / FastAPI | 3.12 / 0.143 | Async REST API with native OpenAPI |
+| **Frontend** | React / Vite | 18.3 / 5.4 | Responsive inventory dashboard |
+| **Database** | PostgreSQL | 16-alpine | Relational storage for products |
+| **ORM / Migration** | SQLAlchemy / Alembic | 2.0 / 1.14 | Schema modelling & versioned migrations |
+| **Testing** | Pytest / HTTPX | 8.3 / 0.28 | 11 API + logic test cases |
+| **Containerization** | Docker & Compose | 24+ | Multi-stage builds, non-root, local stack |
+| **Registry** | GitHub Container Registry | GHCR | SHA-tagged image catalog |
+| **IaC** | Terraform | 1.7+ | AWS VPC + EKS provisioning |
+| **Orchestration** | Kubernetes | 1.34 (EKS) | Deployment, self-healing, scaling |
+| **Packaging** | Helm | 3.12+ | Parameterized templates & releases |
+| **DevSecOps SAST** | Bandit | Latest | Python static security analysis |
+| **DevSecOps SCA** | pip-audit / npm audit | Latest | Dependency CVE scanning |
+| **DevSecOps Secrets** | Gitleaks | 8.x | Leaked-credential detection |
+| **Container Security** | Aqua Trivy | 0.67 | Image CVE scanning (HIGH/CRITICAL gate) |
+| **Observability** | Prometheus & Grafana | Latest | Metrics, alerting, dashboards |
+| **GitOps** | ArgoCD | 2.11+ | Declarative continuous delivery |
 
 ---
 
-# PART B — RUN IT LOCALLY
+## 4. Application Setup
 
-## 5. Fastest method: Docker Compose
+StockDesk is a FastAPI service, a PostgreSQL database, and a Vite/React UI.
 
-Requirements:
-
-- Docker Desktop / Docker Engine
-- Docker Compose
-
-Run:
-
-```bash
-docker compose up --build
-```
-
-Open:
-
+### Directory Layout
 ```text
-http://localhost:3000
+backend/
+├── app/
+│   ├── config.py     # Pydantic settings (DATABASE_URL, app name)
+│   ├── db.py         # SQLAlchemy engine & session factory
+│   ├── models.py     # Product ORM model + stock-status derivation
+│   ├── schemas.py    # Pydantic request/response schemas
+│   └── main.py       # FastAPI routes + Prometheus instrumentation
+├── alembic/          # DB migration scripts (0001_create_products)
+├── tests/            # 11 Pytest cases
+├── requirements.txt
+└── Dockerfile
+frontend/
+├── src/{main.jsx, api.js, styles.css}
+├── package.json
+├── nginx.conf
+└── Dockerfile
 ```
 
-Backend:
-
-```text
-http://localhost:8000/docs
-http://localhost:8000/health
-http://localhost:8000/metrics
-```
-
-Stop:
-
-```bash
-docker compose down
-```
-
-Delete database volume too:
-
-```bash
-docker compose down -v
-```
-
----
-
-## 6. Run backend directly
-
-Requirements:
-
-- Python 3.12+
-- PostgreSQL
-
+### Run the tests (M2 gate)
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+pytest -v          # 11 passed
 ```
 
-Set the database connection:
+**11/11 passed (health, root, CRUD, status derivation, stats, metrics):**
 
+![M2 pytest 11 passed](screenshot/m2-pytest-passing.png)
+
+### Run the backend
 ```bash
-export DATABASE_URL='postgresql+psycopg://stockdesk:stockdesk@localhost:5432/stockdesk'
-```
-
-Run migrations:
-
-```bash
+export DATABASE_URL="postgresql+psycopg://stockdesk:stockdesk@localhost:5432/stockdesk"
 alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Start FastAPI:
+### API Endpoints
+- `GET /` — service metadata & docs link
+- `GET /health` — liveness probe (`{"status": "UP"}`)
+- `GET /ready` — readiness probe, verifies DB (`{"status": "READY"}`)
+- `GET /metrics` — Prometheus metrics
+- `GET /api/products` — list all products
+- `POST /api/products` — create a product
+- `GET /api/products/{id}` — fetch one product
+- `PUT /api/products/{id}` — update (recomputes stock status)
+- `DELETE /api/products/{id}` — delete a product
+- `GET /api/products/stats` — aggregates (`total`, `inStock`, `lowStock`, `outOfStock`)
+
+**M1 evidence — FastAPI auto-docs at `/docs`:**
+
+![M1 FastAPI Swagger docs](screenshot/m1-swagger-api-docs.png)
+
+---
+
+## 5. Docker Setup
+
+Both components follow container best practices:
+1. **Multi-stage builds** strip build toolchains from runtime images.
+2. **Non-root execution** — backend runs as UID `10001`; frontend uses `nginxinc/nginx-unprivileged` (UID `101`, port `8080`).
+3. **`.dockerignore`** keeps `.git`, `node_modules`, `.venv` and test DBs out of layers.
+
+- **Backend:** `python:3.12-slim` → installs wheels → creates user `10001` → runs Alembic then Uvicorn.
+- **Frontend:** stage 1 `node:22-alpine` builds static assets; stage 2 serves them from `nginxinc/nginx-unprivileged:1.30-alpine`.
+
+### Local stack (M4)
+```bash
+docker compose up --build       # boots postgres + backend + frontend
+docker compose ps
+```
+
+Access points:
+- Frontend UI: `http://localhost:3000`
+- Backend API docs: `http://localhost:8000/docs`
+- Prometheus metrics: `http://localhost:8000/metrics`
+- Database: `localhost:5432`
+
+> If host port 5432 is already used by a local Postgres, stop it first (`sudo systemctl stop postgresql`) — the app itself talks to Postgres over the internal Docker network.
+
+---
+
+## 6. Kubernetes Deployment
+
+Declarative manifests live in `kubernetes/` (an alternative to Helm for the raw-k8s requirement):
+
+- `00-namespace.yaml` — namespace `stockdesk`
+- `01-configmap.yaml` — non-sensitive config (`APP_NAME`, `ENVIRONMENT`, `DB_HOST`, `DB_NAME`)
+- `02-secret.yaml` — DB credentials + `DATABASE_URL`
+- `03-storage-pvc.yaml` — 5Gi PVC for Postgres
+- `04-postgres.yaml` — PostgreSQL Deployment (`pg_isready` probes, `PGDATA` subdir for EBS)
+- `05/06` — backend Deployment (2 replicas, `/health` + `/ready` probes) + ClusterIP Service `:8000`
+- `07/08` — frontend Deployment (2 replicas) + ClusterIP Service `:80`
+- `09-ingress.yaml` — Ingress (`/api` → backend, `/` → frontend)
+- `10-hpa.yaml` — HPA, 60% CPU, 2→6 backend pods
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+kubectl apply -f kubernetes/
 ```
 
-Test:
+**App served through the EKS ingress ELB (2 backend + 2 frontend + 1 postgres Running):**
 
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/api/products
-```
+![M8 StockDesk via Ingress](screenshot/m8-app-via-ingress.png)
 
-Open:
+---
+
+## 7. Helm Deployment
+
+Helm packages the app into a parameterized, upgradeable release.
 
 ```text
-http://localhost:8000/docs
+helm/stockdesk/
+├── Chart.yaml
+├── values.yaml           # defaults
+├── values-dev.yaml       # ingress enabled (stockdesk.local)
+├── values-prod.yaml      # ingress on raw ELB host, HPA enabled
+└── templates/
+    ├── _helpers.tpl
+    ├── backend-deployment.yaml / backend-service.yaml
+    ├── frontend-deployment.yaml / frontend-service.yaml
+    ├── postgres.yaml
+    ├── ingress.yaml
+    ├── hpa.yaml
+    ├── servicemonitor.yaml
+    └── grafana-dashboard.yaml
+```
+
+```bash
+helm lint helm/stockdesk
+SHA=$(git rev-parse HEAD)
+helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk --create-namespace \
+  -f helm/stockdesk/values-prod.yaml \
+  --set backend.image=ghcr.io/naren456/stockdesk-backend --set backend.tag=$SHA \
+  --set frontend.image=ghcr.io/naren456/stockdesk-frontend --set frontend.tag=$SHA --wait
+helm list -n stockdesk
+kubectl get pods,svc,ingress,hpa -n stockdesk
 ```
 
 ---
 
-# PART C — TESTING
+## 8. Terraform Infrastructure
 
-## 7. Pytest
+Terraform provisions AWS infrastructure in `ap-south-1`.
 
-```bash
-cd backend
-pytest -q
-```
-
-Students should understand why tests happen **before Docker images are pushed**.
-
-```text
-Bad code
-  ↓
-pytest fails
-  ↓
-Pipeline stops
-  ↓
-No broken image is promoted
-```
-
-This is the first quality gate.
-
----
-
-# PART D — GIT AND GITHUB
-
-## 8. Initialize Git
-
-```bash
-git init
-git add .
-git commit -m "initial StockDesk application"
-git branch -M main
-git remote add origin <YOUR_GITHUB_REPO>
-git push -u origin main
-```
-
-Explain:
-
-- Git = version control
-- GitHub = remote collaboration/source platform
-- commit = immutable project checkpoint
-- branch = isolated line of development
-- pull request = controlled change review
-
----
-
-# PART E — DOCKER
-
-## 9. Backend Dockerfile
-
-The backend image:
-
-1. starts from Python
-2. installs dependencies
-3. copies Alembic
-4. copies application code
-5. creates a non-root user
-6. exposes port 8000
-7. runs migrations
-8. starts Uvicorn
-
-Build:
-
-```bash
-docker build -t stockdesk-backend:local ./backend
-```
-
-Run with a reachable PostgreSQL instance:
-
-```bash
-docker run --rm -p 8000:8000 \
-  -e DATABASE_URL='postgresql+psycopg://stockdesk:stockdesk@host.docker.internal:5432/stockdesk' \
-  stockdesk-backend:local
-```
-
-## 10. Frontend Dockerfile
-
-The frontend uses a multi-stage build:
-
-```text
-Node
-  ↓
-npm build
-  ↓
-static dist/
-  ↓
-Nginx runtime image
-```
-
-This keeps build tooling out of the final runtime image.
-
-Build:
-
-```bash
-docker build -t stockdesk-frontend:local ./frontend
-```
-
----
-
-# PART F — CI/CD
-
-## 11. GitHub Actions pipeline
-
-The workflow has three conceptual stages:
-
-```text
-TEST
- ↓
-BUILD + SECURITY SCAN + PUSH
- ↓
-DEPLOY
-```
-
-### Test job
-
-- checkout
-- setup Python
-- install requirements
-- run pytest
-- setup Node
-- build React frontend
-
-### Build/scan/push job
-
-- build backend image
-- build frontend image
-- scan both with Trivy (pinned `aquasec/trivy` container; fails on fixable HIGH/CRITICAL CVEs)
-- push to GHCR as `ghcr.io/naren456/stockdesk-{backend,frontend}:<commit-sha>`
-
-### Deploy job
-
-- skip cleanly until the `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` secrets exist
-- install Helm
-- configure kubectl with `aws eks update-kubeconfig`
-- run `scripts/bootstrap-cluster.sh` (ingress-nginx, metrics-server, Prometheus/Grafana)
-- run `helm upgrade --install`
-
-The image tag is the Git commit SHA.
-
-That means:
-
-```text
-commit A → image A
-commit B → image B
-commit C → image C
-```
-
-This gives traceability from production back to source code.
-
----
-
-# PART G — SECURITY SCANNING
-
-## 12. Trivy
-
-The pipeline scans container images for HIGH and CRITICAL vulnerabilities.
-
-A security scanner is not a magic guarantee of security. It is one automated control in the pipeline.
-
-Students should understand:
-
-```text
-SAST
-Dependency scanning
-Secret scanning
-Container scanning
-Runtime security
-```
-
-These are different security layers.
-
----
-
-# PART H — TERRAFORM
-
-## 13. Why Terraform?
-
-Kubernetes only manages workloads. It does not create the AWS network and EKS infrastructure in this project.
-
-Terraform creates:
-
-```text
-AWS
- ├── VPC
- ├── public subnets
- ├── private subnets
- ├── NAT gateway
- └── EKS cluster
-       └── managed worker nodes
-```
-
-Go to Terraform:
+1. **VPC (`module.vpc`):** CIDR `10.20.0.0/16`; public subnets `10.20.101.0/24`, `10.20.102.0/24` (IGW); private subnets `10.20.1.0/24`, `10.20.2.0/24` (NAT).
+2. **EKS (`module.eks`):** Kubernetes `1.34`, public endpoint, managed node group (`c7i-flex.large`, 2 nodes), IAM + OIDC.
 
 ```bash
 cd terraform
 terraform init
+terraform validate
 terraform plan
 terraform apply
+aws eks update-kubeconfig --region ap-south-1 --name stockdesk-eks
 ```
 
-The default region is `ap-south-1`.
+**`terraform apply` creating `stockdesk-eks` (cluster + node group + addons):**
 
-After EKS is created, configure kubectl using the command shown by AWS/Terraform output.
+![M7 terraform apply](screenshot/m7-terraform-apply.png)
 
-Destroy when finished:
-
+### Teardown
 ```bash
-terraform destroy
+terraform destroy      # mandatory after evaluation — EKS + NAT bill ~$0.20/hr
 ```
 
-### Important teaching point
+---
 
-Terraform is **Infrastructure as Code**.
+## 9. CI/CD Pipeline
 
-Instead of manually clicking:
+Two GitHub Actions workflows run on push / PR to `main`:
+- **`.github/workflows/ci-cd.yml`** — `test` → `build-scan-push` (Trivy + GHCR SHA tags) → `deploy` (Helm to EKS).
+- **`.github/workflows/ci-cd-devsecops.yml`** — the DevSecOps-extended pipeline (Gitleaks, Bandit, SCA) ahead of the image gate.
 
 ```text
-AWS Console → VPC → Subnet → EKS → Nodes...
+1. Build & Test   → Pytest unit tests, Vite frontend build
+2. DevSecOps      → Gitleaks (secrets), Bandit (SAST), pip-audit / npm audit (SCA)
+3. Security Gate  → Multi-stage Docker build + Trivy CVE scan (HIGH/CRITICAL)
+4. GHCR Publish   → Push images tagged with the Git SHA
+5. Deploy         → helm upgrade --install + kubectl rollout verification
 ```
 
-we describe infrastructure in code and let Terraform reconcile the desired state.
+- **Quality gates:** test failures or HIGH/CRITICAL findings abort the pipeline before images are pushed.
+- **Traceability:** every image is tagged with the exact `${{ github.sha }}`.
+
+![M5 GitHub Actions workflow runs](screenshot/m5-ci-cd-workflow-runs.png)
+
+> Capture the GHCR package page (`ghcr.io/naren456/stockdesk-backend:<sha>`) and the Trivy scan step from a run for the M5/M6 evidence.
 
 ---
 
-# PART I — KUBERNETES
+## 10. DevSecOps Implementation
 
-## 14. Namespace
+Security is shifted left across five controls (configs in `security/`):
 
+1. **Secret Scanning (Gitleaks)** — `security/.gitleaks.toml`; scans commits for leaked tokens/keys.
+2. **SAST (Bandit)** — `security/bandit.yaml`; flags SQL injection, unsafe shell exec, etc.
+3. **SCA (pip-audit / npm audit)** — dependencies vs the NVD / GitHub Advisory DB.
+4. **Container Scanning (Trivy)** — `security/trivy-config.yaml`; OS + library CVEs in built images.
+5. **Enforced gate** — the pipeline exits non-zero on any unfixed HIGH/CRITICAL CVE.
+
+Run all scans locally:
 ```bash
-kubectl apply -f k8s/namespace.yaml
+./security/run-security-scans.sh
 ```
-
-A namespace provides logical isolation for the application.
-
-## 15. Helm
-
-Instead of maintaining many manually edited YAML files, Helm turns the Kubernetes deployment into a reusable package.
-
-```bash
-helm upgrade --install stockdesk ./helm/stockdesk \
-  --namespace stockdesk \
-  --create-namespace
-```
-
-Important Helm concepts:
-
-- Chart
-- values
-- templates
-- release
-- upgrade
-- rollback
 
 ---
 
-# PART J — KUBERNETES COMPONENTS
+## 11. Monitoring & Observability
 
-## 16. Deployment
+Implemented with the **Prometheus + Grafana** stack:
+- **Instrumentation:** `prometheus-fastapi-instrumentator` records request counts, latency histograms and in-flight requests.
+- **Scraping:** Prometheus scrapes `/metrics` every 15s via the `ServiceMonitor`.
+- **Dashboard (`StockDesk Backend`):** requests/sec per endpoint, 5xx error rate, p95 latency, backend pods up.
+- **Alerts (`monitoring/alert-rules.yaml`):** `StockDeskBackendDown` (no scrape > 1 min) and `StockDeskHigh5xxErrorRate` (> 5% of traffic).
 
-The Deployment manages backend/frontend Pods.
+**`/metrics` returns Prometheus text:**
 
-If a Pod dies:
+![M9 metrics endpoint](screenshot/m9-metrics-endpoint.png)
+
+**Prometheus targets — `stockdesk-backend` 2/2 UP:**
+
+![M9 Prometheus targets UP](screenshot/m9-prometheus-targets.png)
+
+**Grafana dashboard — live panels (login `admin` / `stockdesk-admin`):**
+
+![M9 Grafana dashboard](screenshot/m9-grafana-dashboard.png)
+
+---
+
+## 12. GitOps Workflow
+
+GitOps with **ArgoCD** (manifests in `gitops/`):
+- The Git repo is the **single source of truth**.
+- ArgoCD watches `helm/stockdesk` and reconciles the cluster to the declared state.
+- **Self-healing & drift detection:** manual `kubectl` changes are reverted to the Git-declared state.
+
+```bash
+kubectl apply -f gitops/appproject.yaml
+kubectl apply -f gitops/argocd-application.yaml
+```
+
+See `gitops/README.md` for the full setup.
+
+---
+
+## 13. Troubleshooting Lab
+
+`troubleshooting/` contains deliberately broken manifests for root-cause practice:
 
 ```text
-Deployment
-   ↓
-creates replacement Pod
+broken-image.yaml    → ImagePullBackOff (bad image tag / nonexistent repository)
+broken-service.yaml  → Service selector mismatch (empty endpoints, no routing)
 ```
 
-## 17. Service
-
-Pods are ephemeral. A Service provides stable networking.
-
-```text
-Frontend → backend Service → backend Pods
-```
-
-## 18. PostgreSQL
-
-For the classroom/local Kubernetes demo, PostgreSQL is deployed inside the cluster with a PVC.
-
-For production AWS architecture, students should understand the tradeoff between running PostgreSQL in Kubernetes and using a managed database such as Amazon RDS.
+### 6-step framework
+1. **Identify:** `kubectl get pods -n stockdesk` — status & restart count.
+2. **Investigate:** `kubectl describe pod <name>` and `kubectl logs <name> --previous`.
+3. **Root cause:** pinpoint the mismatch (image, label, port, volume).
+4. **Fix:** apply the corrected manifest/patch.
+5. **Verify:** pods reach `Running (1/1)`, endpoints return `200 OK`.
+6. **Post-mortem:** record cause, impact, remediation, prevention.
 
 ---
 
-# PART K — INGRESS
+## 14. Lessons Learned
 
-## 19. Ingress
+**Semantic commit history (rebuild to StockDesk, taskboard→stockdesk rename, Helm/Postgres/EBS fixes):**
 
-The application has two logical routes:
+![M3 git commit history](screenshot/m3-commit-history.png)
 
-```text
-/stockdesk.local/
-      ↓
-React frontend
+### Gap analysis — what was added
+1. **DevSecOps suite:** added `security/` (Bandit, Gitleaks, Trivy config, scan script) and a dedicated `ci-cd-devsecops.yml` on top of the existing Trivy gate.
+2. **Raw Kubernetes manifests:** added `kubernetes/00–10` (ConfigMap, Secret, PVC, Deployments, Services, Ingress, HPA) alongside the Helm chart.
+3. **GitOps:** added `gitops/` (ArgoCD `Application` + `AppProject`).
+4. **Monitoring depth:** added `monitoring/alert-rules.yaml` and `monitoring/servicemonitor.yaml` plus a dashboard shipped in the Helm chart.
+5. **EKS-specific fixes found by actually deploying:** `alembic.ini` `prepend_sys_path` (so migrations import `app` in-container) and Postgres `PGDATA` subdir (so `initdb` works on an EBS volume with `lost+found`).
 
-/stockdesk.local/api
-      ↓
-FastAPI backend
-```
-
-Enable ingress with the dev values:
-
-```bash
-helm upgrade --install stockdesk ./helm/stockdesk \
-  -n stockdesk \
-  -f helm/stockdesk/values-dev.yaml
-```
-
-Students should understand that an Ingress resource is only configuration. An Ingress Controller must actually implement it.
+### External prerequisites
+1. **AWS account + IAM** with VPC/EC2/EKS/NAT/IAM/CloudWatch permissions. EKS + NAT cost ~$0.20/hr — run `terraform destroy` right after capturing evidence.
+2. **GitHub secrets:** `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` for the deploy job; workflow permissions set to read/write so GHCR can store images.
+3. **In-cluster add-ons:** ingress-nginx (Ingress), metrics-server (HPA CPU), kube-prometheus-stack (monitoring) — installed by `./scripts/bootstrap-cluster.sh`.
+4. **Local toolchain:** Python venv + `requirements.txt` for Pytest; Node 20+ for the frontend build.
 
 ---
 
-# PART L — HPA
-
-## 20. Horizontal Pod Autoscaler
-
-The HPA can scale the backend based on CPU utilization.
-
-```text
-low traffic
-   ↓
-2 Pods
-
-high CPU
-   ↓
-3 Pods
-   ↓
-4 Pods
-   ↓
-...
-```
-
-Inspect:
-
-```bash
-kubectl get hpa -n stockdesk
-```
-
-HPA requires resource requests and a metrics provider such as Metrics Server.
-
-A normal health request may not create enough CPU pressure to demonstrate scaling. For a classroom demo, use a controlled load generator and watch the metrics.
-
----
-
-# PART M — MONITORING
-
-## 21. Prometheus
-
-Prometheus collects metrics from the FastAPI `/metrics` endpoint.
-
-The ServiceMonitor tells the Prometheus Operator what to scrape.
-
-## 22. Grafana
-
-Grafana visualizes the collected metrics.
-
-Useful questions:
-
-- How many HTTP requests are arriving?
-- Which endpoint is slow?
-- Are errors increasing?
-- Is the application receiving traffic?
-- Is CPU increasing?
-- Is HPA scaling?
-
----
-
-# PART N — TROUBLESHOOTING LAB
-
-## 23. Broken image
-
-Apply:
-
-```bash
-kubectl apply -f troubleshooting/broken-image.yaml
-```
-
-Then:
-
-```bash
-kubectl get pods
-kubectl describe pod <pod-name>
-kubectl get events --sort-by=.lastTimestamp
-```
-
-Expected investigation:
-
-```text
-ImagePullBackOff
-      ↓
-describe Pod
-      ↓
-wrong image/tag
-      ↓
-fix deployment
-```
-
-## 24. Broken Service
-
-Apply:
-
-```bash
-kubectl apply -f troubleshooting/broken-service.yaml
-```
-
-Investigate:
-
-```bash
-kubectl get svc
-kubectl get endpoints
-kubectl get pods --show-labels
-```
-
-The key lesson is that a Service selects Pods using labels.
-
-No matching labels = no endpoints = no traffic.
-
----
-
-# PART O — FINAL DEMO
-
-The instructor should demonstrate the application in this order:
-
-### 1. Application
-
-Open StockDesk and create a product.
-
-### 2. API
-
-Open FastAPI Swagger:
-
-```text
-/docs
-```
-
-Create/read/update/delete a product.
-
-### 3. Database
-
-Show the PostgreSQL `products` table.
-
-### 4. Git
-
-Make a small application change and commit it.
-
-### 5. CI
-
-Push to GitHub and show tests running.
-
-### 6. Docker
-
-Show the two images.
-
-### 7. Security
-
-Show Trivy scanning the images.
-
-### 8. Registry
-
-Show the images in GHCR.
-
-### 9. Terraform
-
-Show the AWS infrastructure code.
-
-### 10. Kubernetes
-
-```bash
-kubectl get pods -n stockdesk
-kubectl get svc -n stockdesk
-```
-
-### 11. Helm
-
-```bash
-helm list -n stockdesk
-```
-
-### 12. Ingress
-
-Open the application through the Ingress hostname.
-
-### 13. HPA
-
-```bash
-kubectl get hpa -n stockdesk
-```
-
-### 14. Monitoring
-
-Show Prometheus and Grafana.
-
-### 15. Failure simulation
-
-Break a Service/image and troubleshoot it live.
-
-This sequence makes the entire course feel like one story instead of 15 unrelated tools.
-
----
-
-# FINAL STUDENT PROJECT
-
-Students should now build their own application using the same architecture.
-
-Possible domains:
-
-- CRM
-- Inventory management
-- Appointment booking
-- Helpdesk
-- Ecommerce administration
-- Clinic management
-- Restaurant management
-- Employee management
-- Learning management system
-
-Minimum requirements:
-
-### Application
-
-- frontend
-- backend
-- PostgreSQL
-- minimum 4 REST APIs
-- responsive UI
-
-### Engineering
-
-- Git/GitHub
-- automated tests
-- Docker
-
-### DevOps
-
-- GitHub Actions
-- security scan
-- container registry
-- Terraform
-- Kubernetes
-- Helm
-- Ingress
-- HPA
-- Prometheus/Grafana
-
-### Final presentation
-
-Each student must demonstrate:
-
-```text
-Application
-  ↓
-Git commit
-  ↓
-CI pipeline
-  ↓
-Docker image
-  ↓
-Security scan
-  ↓
-Registry
-  ↓
-Terraform infrastructure
-  ↓
-Kubernetes deployment
-  ↓
-Helm
-  ↓
-Ingress
-  ↓
-Autoscaling
-  ↓
-Monitoring
-  ↓
-Troubleshooting
-```
-
-That is the actual objective of Session 21.
-
----
-
-# Submission
-
-Rubric mapping, the Trivy write-up, the AWS runbook and the screenshot checklist are in
-[docs/SUBMISSION.md](docs/SUBMISSION.md).
-
+See [`STUDENT-GUIDE.md`](STUDENT-GUIDE.md) for a step-by-step walkthrough and [`GRADING.md`](GRADING.md) for the rubric.

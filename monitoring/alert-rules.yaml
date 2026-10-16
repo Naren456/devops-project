@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: stockdesk-alerts
+  namespace: stockdesk
+  labels:
+    release: prometheus
+    role: alert-rules
+spec:
+  groups:
+    - name: stockdesk.rules
+      rules:
+        - alert: StockDeskBackendDown
+          expr: up{job="stockdesk-backend-metrics"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "StockDesk backend is unreachable"
+            description: "No metrics scraped from StockDesk backend for over 1 minute."
+
+        - alert: StockDeskHigh5xxErrorRate
+          expr: sum(rate(http_requests_total{status=~"5.."}[2m])) / sum(rate(http_requests_total[2m])) * 100 > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High HTTP 5xx error rate detected"
+            description: "StockDesk backend 5xx responses exceed 5% over the last 2 minutes."
