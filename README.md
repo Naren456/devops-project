@@ -356,6 +356,10 @@ aws eks update-kubeconfig --region ap-south-1 --name stockdesk-eks
 terraform destroy      # mandatory after evaluation — EKS + NAT bill ~$0.20/hr
 ```
 
+**`terraform destroy` complete — all resources removed, nothing left running on AWS (no runaway costs):**
+
+![M7 terraform destroy complete](screenshot/m7-terraform-destroy.png)
+
 ---
 
 ## 9. CI/CD Pipeline
