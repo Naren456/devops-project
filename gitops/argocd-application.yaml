@@ -6,14 +6,20 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
+  project: stockdesk-project
   source:
-    repoURL: https://github.com/naren456/devops-project.git
+    repoURL: https://github.com/Naren456/devops-project.git
     targetRevision: HEAD
     path: helm/stockdesk
     helm:
       valueFiles:
-        - values.yaml
+        - values-prod.yaml
+      parameters:
+        # CI publishes images tagged by Git SHA (never :latest), so pin a real tag.
+        - name: backend.tag
+          value: "50840d2176b2d58bc8dcb35412fe390eb94a15ae"
+        - name: frontend.tag
+          value: "50840d2176b2d58bc8dcb35412fe390eb94a15ae"
   destination:
     server: https://kubernetes.default.svc
     namespace: stockdesk
@@ -23,7 +29,6 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ApplyOutOfSyncOnly=true
     retry:
       limit: 5
       backoff:

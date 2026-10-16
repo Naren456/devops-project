@@ -365,7 +365,9 @@ Two GitHub Actions workflows run on push / PR to `main`:
 
 ![M5 GitHub Actions workflow runs](screenshot/m5-ci-cd-workflow-runs.png)
 
-> Capture the GHCR package page (`ghcr.io/naren456/stockdesk-backend:<sha>`) and the Trivy scan step from a run for the M5/M6 evidence.
+**GHCR package `stockdesk-backend` published with Git-SHA tags (`ghcr.io/naren456/stockdesk-backend:<sha>`):**
+
+![M5 GHCR package with SHA tags](screenshot/m5-ghcr-packages.png)
 
 ---
 
@@ -419,6 +421,10 @@ GitOps with **ArgoCD** (manifests in `gitops/`):
 kubectl apply -f gitops/appproject.yaml
 kubectl apply -f gitops/argocd-application.yaml
 ```
+
+**ArgoCD application `stockdesk-capstone`: Synced to `HEAD` and Healthy (17 resources), auto-sync enabled:**
+
+![ArgoCD application Synced & Healthy](screenshot/argocd-synced-healthy.png)
 
 See `gitops/README.md` for the full setup.
 
