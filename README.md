@@ -396,7 +396,17 @@ Security is shifted left across five controls (configs in `security/`):
 Run all scans locally:
 ```bash
 ./security/run-security-scans.sh
+# or just the container CVE scan:
+trivy image --severity HIGH,CRITICAL stockdesk-backend:scan
 ```
+
+**Trivy scan of `stockdesk-backend` — 44 HIGH / 0 CRITICAL, all in base-image OS packages (`util-linux`, `ncurses`, `systemd`) with no upstream fix; every Python dependency is clean (0):**
+
+![M6 Trivy scan summary](screenshot/m6-trivy-scan.png)
+
+![M6 Trivy HIGH findings](screenshot/m6-trivy-findings.png)
+
+> The CI gate runs Trivy with `--ignore-unfixed`, so these no-fix-available OS CVEs don't block the pipeline — it fails only on HIGH/CRITICAL vulnerabilities that have a fix.
 
 ---
 
