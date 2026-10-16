@@ -3,10 +3,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: taskboard-grafana-dashboard
+  name: stockdesk-grafana-dashboard
   labels:
     grafana_dashboard: "1"
 data:
-  taskboard-backend.json: |-
-{{ .Files.Get "dashboards/taskboard-backend.json" | indent 4 }}
+  stockdesk-backend.json: |-
+{{ .Files.Get "dashboards/stockdesk-backend.json" | indent 4 }}
 {{- end }}

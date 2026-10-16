@@ -1,7 +1,7 @@
 frontend:
-  image: ghcr.io/naren456/taskboard-frontend
+  image: ghcr.io/naren456/stockdesk-frontend
 backend:
-  image: ghcr.io/naren456/taskboard-backend
+  image: ghcr.io/naren456/stockdesk-backend
 replicaCount: 2
 ingress:
   enabled: true

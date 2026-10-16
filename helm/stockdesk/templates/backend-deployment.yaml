@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  # Fixed name: the frontend nginx proxy and the Ingress both target "taskboard-backend".
-  name: taskboard-backend
-  labels: {app: taskboard-backend}
+  # Fixed name: the frontend nginx proxy and the Ingress both target "stockdesk-backend".
+  name: stockdesk-backend
+  labels: {app: stockdesk-backend}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels: {app: taskboard-backend}
+    matchLabels: {app: stockdesk-backend}
   template:
     metadata:
-      labels: {app: taskboard-backend}
+      labels: {app: stockdesk-backend}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

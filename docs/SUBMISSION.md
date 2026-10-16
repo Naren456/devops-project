@@ -1,8 +1,8 @@
-# Capstone submission — TaskBoard
+# Capstone submission — StockDesk
 
 - Repository: https://github.com/Naren456/devops-project
-- Images: `ghcr.io/naren456/taskboard-backend:<sha>`, `ghcr.io/naren456/taskboard-frontend:<sha>`
-- Region: `ap-south-1`, EKS cluster `taskboard-eks`, namespace `taskboard`
+- Images: `ghcr.io/naren456/stockdesk-backend:<sha>`, `ghcr.io/naren456/stockdesk-frontend:<sha>`
+- Region: `ap-south-1`, EKS cluster `stockdesk-eks`, namespace `stockdesk`
 
 ## Rubric mapping
 
@@ -15,8 +15,8 @@
 | M5 CI/CD | `.github/workflows/ci-cd.yml`: test → build → Trivy → push to GHCR with commit-SHA tags → Helm deploy to EKS |
 | M6 Trivy | Scan steps in `ci-cd.yml`; write-up below |
 | M7 Terraform | `terraform/` (VPC with 2 public + 2 private subnets, EKS 1.34, managed node group), `terraform.tfvars.example` |
-| M8 Kubernetes + Helm | `k8s/namespace.yaml`, `helm/taskboard/` (2 replicas each, ClusterIP Services, Ingress `/` + `/api`, HPA, Postgres) |
-| M9 Observability | `/metrics` on the backend, `helm/taskboard/templates/servicemonitor.yaml`, `monitoring/prometheus-values.yaml`, Grafana dashboard `helm/taskboard/dashboards/taskboard-backend.json` |
+| M8 Kubernetes + Helm | `k8s/namespace.yaml`, `helm/stockdesk/` (2 replicas each, ClusterIP Services, Ingress `/` + `/api`, HPA, Postgres) |
+| M9 Observability | `/metrics` on the backend, `helm/stockdesk/templates/servicemonitor.yaml`, `monitoring/prometheus-values.yaml`, Grafana dashboard `helm/stockdesk/dashboards/stockdesk-backend.json` |
 | M10 Docs | `README.md`, `STUDENT-GUIDE.md`, this file |
 
 ## M6 — Trivy write-up
@@ -53,7 +53,7 @@ cp terraform.tfvars.example terraform.tfvars
 terraform init
 terraform plan -out tfplan        # screenshot
 terraform apply tfplan            # ~15 minutes
-aws eks update-kubeconfig --region ap-south-1 --name taskboard-eks
+aws eks update-kubeconfig --region ap-south-1 --name stockdesk-eks
 kubectl get nodes
 ```
 
@@ -70,8 +70,8 @@ Or deploy by hand:
 ```bash
 ./scripts/bootstrap-cluster.sh
 SHA=$(git rev-parse HEAD)
-helm upgrade --install taskboard ./helm/taskboard -n taskboard --create-namespace \
-  -f helm/taskboard/values-prod.yaml --set backend.tag=$SHA --set frontend.tag=$SHA --wait
+helm upgrade --install stockdesk ./helm/stockdesk -n stockdesk --create-namespace \
+  -f helm/stockdesk/values-prod.yaml --set backend.tag=$SHA --set frontend.tag=$SHA --wait
 ```
 
 The GHCR packages are public, so no image pull secret is needed.
@@ -82,8 +82,8 @@ The load balancer and the Postgres EBS volume are created by Kubernetes, not Ter
 or `terraform destroy` stalls on the VPC and leaves a billed volume behind:
 
 ```bash
-helm uninstall taskboard -n taskboard
-kubectl delete pvc --all -n taskboard
+helm uninstall stockdesk -n stockdesk
+kubectl delete pvc --all -n stockdesk
 helm uninstall ingress-nginx -n ingress-nginx
 helm uninstall kube-prometheus-stack -n monitoring
 kubectl get svc -A | grep LoadBalancer      # wait until empty
@@ -100,6 +100,6 @@ Then remove the AWS secrets from GitHub so later pushes skip the deploy job.
 - [ ] M5: green Actions run; GHCR package page showing SHA tags
 - [ ] M6: Trivy step output from the Actions run
 - [ ] M7: `terraform plan`, AWS Console VPC + EKS, `terraform destroy` completion
-- [ ] M8: `kubectl get pods -n taskboard`, `kubectl get svc -n taskboard`, `helm list -n taskboard`, app via Ingress hostname
-- [ ] M9: `kubectl port-forward svc/taskboard-backend 8000 -n taskboard` then `curl localhost:8000/metrics`; Prometheus Targets page (UP); Grafana "TaskBoard Backend" dashboard
-- [ ] M10: demo — edit the UI, push, watch the pipeline, show the new SHA in `kubectl get deploy -n taskboard -o wide`
+- [ ] M8: `kubectl get pods -n stockdesk`, `kubectl get svc -n stockdesk`, `helm list -n stockdesk`, app via Ingress hostname
+- [ ] M9: `kubectl port-forward svc/stockdesk-backend 8000 -n stockdesk` then `curl localhost:8000/metrics`; Prometheus Targets page (UP); Grafana "StockDesk Backend" dashboard
+- [ ] M10: demo — edit the UI, push, watch the pipeline, show the new SHA in `kubectl get deploy -n stockdesk -o wide`

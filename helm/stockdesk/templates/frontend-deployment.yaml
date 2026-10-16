@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: taskboard-frontend, labels: {app: taskboard-frontend}}
+metadata: {name: stockdesk-frontend, labels: {app: stockdesk-frontend}}
 spec:
   replicas: {{ .Values.replicaCount }}
-  selector: {matchLabels: {app: taskboard-frontend}}
+  selector: {matchLabels: {app: stockdesk-frontend}}
   template:
-    metadata: {labels: {app: taskboard-frontend}}
+    metadata: {labels: {app: stockdesk-frontend}}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

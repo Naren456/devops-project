@@ -1,6 +1,6 @@
 replicaCount: 2
 ingress:
   enabled: true
-  host: taskboard.local
+  host: stockdesk.local
 hpa:
   enabled: false

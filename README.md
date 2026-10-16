@@ -1,10 +1,10 @@
-# Session 21 — DevOps Final Capstone: TaskBoard (Python)
+# Session 21 — DevOps Final Capstone: StockDesk (Python)
 
-This is the single-project capstone for the DevOps course. Students first understand and deploy **TaskBoard**, then replicate the same engineering and DevOps architecture with their own final application.
+This is the single-project capstone for the DevOps course. Students first understand and deploy **StockDesk**, then replicate the same engineering and DevOps architecture with their own final application.
 
 ## 1. What we are building
 
-TaskBoard is a small but realistic SaaS-style project management application:
+StockDesk is a small but realistic SaaS-style hardware inventory / stock-tracking application:
 
 - React + Vite frontend
 - Responsive HTML/JSX + CSS UI
@@ -77,7 +77,7 @@ session21-devops-capstone-final/
 │   └── alembic/              # DB migrations
 ├── docker-compose.yml        # Full local stack
 ├── terraform/                # AWS VPC + EKS infrastructure
-├── helm/taskboard/            # Kubernetes package
+├── helm/stockdesk/            # Kubernetes package
 ├── k8s/                      # namespace/bootstrap manifests
 ├── monitoring/               # Prometheus/Grafana values
 ├── troubleshooting/          # deliberately broken manifests
@@ -98,17 +98,18 @@ It contains:
 - dark sidebar
 - workspace navigation
 - dashboard header
-- KPI cards
-- task table
-- status filters
-- priority badges
-- activity feed
-- pipeline indicator
-- create-task modal
+- KPI cards (total / in-stock / low-stock / out-of-stock)
+- product inventory table
+- stock-status filters
+- search by name, SKU or category
+- inline quantity steppers (restock / sell)
+- stock-status badges
+- low-stock callout
+- create / edit product modal
 - responsive CSS
 - loading and backend-error states
 
-The browser calls `/api/tasks` and `/api/tasks/stats`.
+The browser calls `/api/products` and `/api/products/stats`.
 
 The browser does **not** need to know the internal backend hostname. Nginx and Kubernetes Ingress handle routing.
 
@@ -122,12 +123,12 @@ GET    /health
 GET    /ready
 GET    /metrics
 
-GET    /api/tasks
-GET    /api/tasks/{id}
-POST   /api/tasks
-PUT    /api/tasks/{id}
-DELETE /api/tasks/{id}
-GET    /api/tasks/stats
+GET    /api/products
+GET    /api/products/{id}
+POST   /api/products
+PUT    /api/products/{id}
+DELETE /api/products/{id}
+GET    /api/products/stats
 ```
 
 Swagger documentation is available at `/docs` when the backend is running.
@@ -206,7 +207,7 @@ pip install -r requirements.txt
 Set the database connection:
 
 ```bash
-export DATABASE_URL='postgresql+psycopg://taskboard:taskboard@localhost:5432/taskboard'
+export DATABASE_URL='postgresql+psycopg://stockdesk:stockdesk@localhost:5432/stockdesk'
 ```
 
 Run migrations:
@@ -225,7 +226,7 @@ Test:
 
 ```bash
 curl http://localhost:8000/health
-curl http://localhost:8000/api/tasks
+curl http://localhost:8000/api/products
 ```
 
 Open:
@@ -268,7 +269,7 @@ This is the first quality gate.
 ```bash
 git init
 git add .
-git commit -m "initial TaskBoard application"
+git commit -m "initial StockDesk application"
 git branch -M main
 git remote add origin <YOUR_GITHUB_REPO>
 git push -u origin main
@@ -302,15 +303,15 @@ The backend image:
 Build:
 
 ```bash
-docker build -t taskboard-backend:local ./backend
+docker build -t stockdesk-backend:local ./backend
 ```
 
 Run with a reachable PostgreSQL instance:
 
 ```bash
 docker run --rm -p 8000:8000 \
-  -e DATABASE_URL='postgresql+psycopg://taskboard:taskboard@host.docker.internal:5432/taskboard' \
-  taskboard-backend:local
+  -e DATABASE_URL='postgresql+psycopg://stockdesk:stockdesk@host.docker.internal:5432/stockdesk' \
+  stockdesk-backend:local
 ```
 
 ## 10. Frontend Dockerfile
@@ -332,7 +333,7 @@ This keeps build tooling out of the final runtime image.
 Build:
 
 ```bash
-docker build -t taskboard-frontend:local ./frontend
+docker build -t stockdesk-frontend:local ./frontend
 ```
 
 ---
@@ -365,7 +366,7 @@ DEPLOY
 - build backend image
 - build frontend image
 - scan both with Trivy (pinned `aquasec/trivy` container; fails on fixable HIGH/CRITICAL CVEs)
-- push to GHCR as `ghcr.io/naren456/taskboard-{backend,frontend}:<commit-sha>`
+- push to GHCR as `ghcr.io/naren456/stockdesk-{backend,frontend}:<commit-sha>`
 
 ### Deploy job
 
@@ -477,8 +478,8 @@ A namespace provides logical isolation for the application.
 Instead of maintaining many manually edited YAML files, Helm turns the Kubernetes deployment into a reusable package.
 
 ```bash
-helm upgrade --install taskboard ./helm/taskboard \
-  --namespace taskboard \
+helm upgrade --install stockdesk ./helm/stockdesk \
+  --namespace stockdesk \
   --create-namespace
 ```
 
@@ -530,11 +531,11 @@ For production AWS architecture, students should understand the tradeoff between
 The application has two logical routes:
 
 ```text
-/taskboard.local/
+/stockdesk.local/
       ↓
 React frontend
 
-/taskboard.local/api
+/stockdesk.local/api
       ↓
 FastAPI backend
 ```
@@ -542,9 +543,9 @@ FastAPI backend
 Enable ingress with the dev values:
 
 ```bash
-helm upgrade --install taskboard ./helm/taskboard \
-  -n taskboard \
-  -f helm/taskboard/values-dev.yaml
+helm upgrade --install stockdesk ./helm/stockdesk \
+  -n stockdesk \
+  -f helm/stockdesk/values-dev.yaml
 ```
 
 Students should understand that an Ingress resource is only configuration. An Ingress Controller must actually implement it.
@@ -574,7 +575,7 @@ high CPU
 Inspect:
 
 ```bash
-kubectl get hpa -n taskboard
+kubectl get hpa -n stockdesk
 ```
 
 HPA requires resource requests and a metrics provider such as Metrics Server.
@@ -664,7 +665,7 @@ The instructor should demonstrate the application in this order:
 
 ### 1. Application
 
-Open TaskBoard and create a task.
+Open StockDesk and create a product.
 
 ### 2. API
 
@@ -674,11 +675,11 @@ Open FastAPI Swagger:
 /docs
 ```
 
-Create/read/update/delete a task.
+Create/read/update/delete a product.
 
 ### 3. Database
 
-Show the PostgreSQL `tasks` table.
+Show the PostgreSQL `products` table.
 
 ### 4. Git
 
@@ -707,14 +708,14 @@ Show the AWS infrastructure code.
 ### 10. Kubernetes
 
 ```bash
-kubectl get pods -n taskboard
-kubectl get svc -n taskboard
+kubectl get pods -n stockdesk
+kubectl get svc -n stockdesk
 ```
 
 ### 11. Helm
 
 ```bash
-helm list -n taskboard
+helm list -n stockdesk
 ```
 
 ### 12. Ingress
@@ -724,7 +725,7 @@ Open the application through the Ingress hostname.
 ### 13. HPA
 
 ```bash
-kubectl get hpa -n taskboard
+kubectl get hpa -n stockdesk
 ```
 
 ### 14. Monitoring

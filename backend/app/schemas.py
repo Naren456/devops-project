@@ -2,30 +2,30 @@ from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
-Status = Literal["TODO", "IN_PROGRESS", "DONE"]
-Priority = Literal["LOW", "MEDIUM", "HIGH"]
+Status = Literal["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"]
 
-class TaskCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    description: str = ""
-    priority: Priority = "MEDIUM"
-    status: Status = "TODO"
-    assignee: str = "Unassigned"
+class ProductCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    sku: str = Field(default="", max_length=60)
+    category: str = Field(default="General", max_length=80)
+    quantity: int = Field(default=0, ge=0)
+    price: float = Field(default=0, ge=0)
 
-class TaskUpdate(BaseModel):
-    title: str | None = Field(default=None, min_length=1, max_length=200)
-    description: str | None = None
-    priority: Priority | None = None
-    status: Status | None = None
-    assignee: str | None = None
+class ProductUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    sku: str | None = Field(default=None, max_length=60)
+    category: str | None = Field(default=None, max_length=80)
+    quantity: int | None = Field(default=None, ge=0)
+    price: float | None = Field(default=None, ge=0)
 
-class TaskOut(TaskCreate):
+class ProductOut(ProductCreate):
     id: int
+    status: Status
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 class StatsOut(BaseModel):
     total: int
-    todo: int
-    inProgress: int
-    done: int
+    inStock: int
+    lowStock: int
+    outOfStock: int

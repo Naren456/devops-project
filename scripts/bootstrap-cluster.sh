@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the cluster add-ons the TaskBoard chart depends on:
+# Install the cluster add-ons the StockDesk chart depends on:
 #   ingress-nginx          -> Ingress routing (/ -> frontend, /api -> backend)
 #   metrics-server         -> CPU metrics for the HPA
 #   kube-prometheus-stack  -> Prometheus, Grafana and the ServiceMonitor CRD

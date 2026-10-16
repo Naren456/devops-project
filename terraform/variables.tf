@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "cluster_name" {
   description = "EKS cluster name (CI deploys to this name)"
   type        = string
-  default     = "taskboard-eks"
+  default     = "stockdesk-eks"
 }
 
 variable "cluster_version" {

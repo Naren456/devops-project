@@ -1,22 +1,22 @@
 frontend:
-  image: ghcr.io/naren456/taskboard-frontend
+  image: ghcr.io/naren456/stockdesk-frontend
   tag: latest
 backend:
-  image: ghcr.io/naren456/taskboard-backend
+  image: ghcr.io/naren456/stockdesk-backend
   tag: latest
 replicaCount: 2
-namespace: taskboard
+namespace: stockdesk
 imagePullSecrets: []
 postgres:
-  host: taskboard-postgres
-  database: taskboard
-  username: taskboard
-  password: taskboard
+  host: stockdesk-postgres
+  database: stockdesk
+  username: stockdesk
+  password: stockdesk
   storage: 5Gi
   storageClassName: ""   # empty = cluster default (gp3 on EKS via k8s/storageclass-gp3.yaml)
 ingress:
   enabled: false
-  host: taskboard.local
+  host: stockdesk.local
 hpa:
   enabled: true
   minReplicas: 2

@@ -1,7 +1,7 @@
 # Local rehearsal cluster: kind create cluster --config k8s/kind/cluster.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
-name: taskboard
+name: stockdesk
 nodes:
   - role: control-plane
     labels:
