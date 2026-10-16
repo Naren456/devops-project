@@ -339,6 +339,14 @@ aws eks update-kubeconfig --region ap-south-1 --name stockdesk-eks
 
 ![M7 terraform apply](screenshot/m7-terraform-apply.png)
 
+**AWS Console — EKS clusters in Asia Pacific (Mumbai): `stockdesk-eks` is `Active` on Kubernetes 1.34:**
+
+![M7 AWS Console EKS clusters list](screenshot/m7-eks-console-list.png)
+
+**AWS Console — `stockdesk-eks` cluster detail (Active, 1 node group, 4 add-ons, `Project=stockdesk` tags):**
+
+![M7 AWS Console EKS cluster detail](screenshot/m7-eks-console-cluster.png)
+
 ### Teardown
 ```bash
 terraform destroy      # mandatory after evaluation — EKS + NAT bill ~$0.20/hr
