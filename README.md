@@ -16,7 +16,9 @@
 
 Recorded walkthrough of the full flow (commit → CI/CD pipeline → deployment update): **[https://www.loom.com/share/17e254cf0a774a64ac4bbb830a0a734e](https://www.loom.com/share/17e254cf0a774a64ac4bbb830a0a734e)**
 
-Presentation deck: [`StockDesk_DevOps_Capstone.pptx`](StockDesk_DevOps_Capstone.pptx)
+Presentation deck (M10): **[`StockDesk_DevOps_Capstone.pptx`](StockDesk_DevOps_Capstone.pptx)** — 14 slides covering the full DevOps lifecycle, with speaker notes.
+
+[![StockDesk DevOps Capstone — presentation preview](screenshot/presentation-preview.png)](StockDesk_DevOps_Capstone.pptx)
 
 ---
 
